@@ -104,9 +104,9 @@
   .timeline{position:relative;padding-left:2.6rem;max-width:760px}
   .timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--barn),var(--brass) 60%,transparent);border-radius:2px}
   .block{position:relative;margin-bottom:2.4rem}
-  .block.year::before{content:"";position:absolute;left:-2.6rem;top:.15rem;width:20px;height:20px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 4px var(--parchment),inset 0 0 0 2px rgba(0,0,0,.22)}
+  .timeline .block.year::before{content:"";position:absolute;left:-2.6rem;top:.15rem;width:20px;height:20px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 4px var(--parchment),inset 0 0 0 2px rgba(0,0,0,.22)}
   .block.year .ymark{font-family:var(--display);font-size:1.7rem;color:var(--spruce-deep);font-weight:600;letter-spacing:.01em}
-  .block.text::before,.block.image::before,.block.boble::before{content:"";position:absolute;left:-2.18rem;top:.7rem;width:8px;height:8px;border-radius:50%;background:var(--parchment);box-shadow:0 0 0 2px var(--barn)}
+  .timeline .block.text::before,.timeline .block.image::before,.timeline .block.boble::before{content:"";position:absolute;left:-2.18rem;top:.7rem;width:8px;height:8px;border-radius:50%;background:var(--parchment);box-shadow:0 0 0 2px var(--barn)}
   .block.text .body-txt{font-size:1.08rem;white-space:pre-wrap}
   .block.image .photo{background:var(--paper-card);padding:.6rem .6rem .9rem;border:1px solid var(--line);box-shadow:var(--shadow);max-width:430px;border-radius:3px;transform:rotate(-1.3deg);transition:transform .3s;position:relative}
   .block.image .photo:hover{transform:rotate(0deg)}
@@ -137,6 +137,25 @@
   .bubble .blk-tools{margin-top:.7rem}
   .block.boble .bubble{transform:none}
   .block.boble .bubble:hover{transform:none}
+
+  /* forside-blokker */
+  .front-blocks{max-width:760px;margin-top:.5rem}
+  .front-blocks .block{margin-bottom:1.8rem}
+
+  /* Hyttebok — fri dragbar tavle */
+  .canvas{position:relative;width:100%;min-height:560px;margin-top:1rem;border-radius:12px}
+  body.editing .canvas{background-image:radial-gradient(rgba(42,33,24,.10) 1px,transparent 1px);background-size:22px 22px;border:1px dashed var(--line)}
+  .note{position:absolute;width:230px;max-width:86%}
+  .note.img{width:250px}
+  .note .bubble{margin:0}
+  .note .photo{background:var(--paper-card);padding:.5rem .5rem .75rem;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:3px}
+  .note .photo img{width:100%;border-radius:1px}
+  .note .photo .cap{font-family:var(--sans);font-size:.76rem;color:var(--ink-soft);text-align:center;padding-top:.45rem}
+  .note .drag{display:none;align-items:center;gap:.3rem;cursor:grab;font-family:var(--sans);font-size:.72rem;letter-spacing:.03em;color:var(--ink-soft);background:var(--paper-card);border:1px solid var(--line);border-radius:6px;padding:.18rem .55rem;margin-bottom:.35rem;width:fit-content;user-select:none;touch-action:none}
+  body.editing .note .drag{display:inline-flex}
+  .note .drag:active{cursor:grabbing}
+  .note.dragging{z-index:60}
+  .note .blk-tools{margin-top:.4rem}
 
   .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.3rem}
   .gcard{background:var(--paper-card);border:1px solid var(--line);border-radius:9px;padding:1.5rem 1.5rem 1.6rem;box-shadow:0 10px 26px -22px rgba(36,28,21,.5);position:relative}
@@ -220,7 +239,7 @@
     <nav class="links" id="navLinks">
       <button data-page="forside" onclick="go('forside')">Forside</button>
       <button data-page="historie" onclick="go('historie')">Historie</button>
-      <button data-page="tavla" onclick="go('tavla')">Tavla</button>
+      <button data-page="tavla" onclick="go('tavla')">Hyttebok</button>
       <button data-page="guide" onclick="go('guide')">Hytteguide</button>
       <button data-page="bilder" onclick="go('bilder')">Bilder</button>
     </nav>
@@ -279,9 +298,10 @@ function defaultState(){
       {id:uid(),type:'year',year:'1985'},
       {id:uid(),type:'text',text:'Verandaen kom til, og endelig fikk vi innlagt vann. Skriv inn deres egne minner her.'}
     ],
+    front:[],
     bubbles:[
-      {id:uid(),text:'«Husker du sommeren det regnet hele uka og vi spilte kort til midnatt?»',color:1},
-      {id:uid(),text:'Legg igjen en hilsen eller et minne her — trykk på Rediger.',color:2}
+      {id:uid(),kind:'text',text:'«Husker du sommeren det regnet hele uka og vi spilte kort til midnatt?»',color:1,x:5,y:24,rot:-1.2},
+      {id:uid(),kind:'text',text:'Legg igjen en hilsen eller et minne her — eller dra inn et bilde.',color:2,x:40,y:60,rot:1.1}
     ],
     guideIntro:'Det praktiske: alt en gjest eller ny i familien trenger å vite for et godt opphold.',
     guide:[
@@ -301,7 +321,9 @@ function ensureShape(s){
   const d=defaultState();
   s.site=Object.assign({},d.site,s.site||{});
   s.history=Array.isArray(s.history)?s.history:d.history;
+  s.front=Array.isArray(s.front)?s.front:[];
   s.bubbles=Array.isArray(s.bubbles)?s.bubbles:[];
+  s.bubbles.forEach((b,i)=>{ if(!b.kind)b.kind='text'; if(typeof b.x!=='number')b.x=4+(i%3)*26; if(typeof b.y!=='number')b.y=24+Math.floor(i/3)*190; if(typeof b.rot!=='number')b.rot=(i%2?1.1:-1.1); });
   s.guide=Array.isArray(s.guide)?s.guide:d.guide;
   s.gallery=Array.isArray(s.gallery)?s.gallery:[];
   s.historyIntro=s.historyIntro||d.historyIntro;
@@ -372,16 +394,17 @@ function go(page){current=page;document.querySelectorAll('.page').forEach(p=>p.c
 
 /* ---------- editable binding ---------- */
 function ed(path,html,tag,cls){tag=tag||'div';cls=cls?' class="'+cls+'"':'';return `<${tag}${cls} data-bind="${path}" ${editMode?'contenteditable="true"':''} spellcheck="false">${html}</${tag}>`;}
-function bindEditables(scope){(scope||document).querySelectorAll('[data-bind]').forEach(el=>{el.setAttribute('contenteditable',editMode?'true':'false');if(el._bound)return;el._bound=true;el.addEventListener('blur',()=>{const val=el.innerText.replace(/\u00a0/g,' ').trimEnd();const m=el.dataset.bind.match(/^__(year|text|cap|gh|gb|gc|btext|boble)__(.+)$/);if(m){applyListEdit(m[1],m[2],val);}else{setByPath(state,el.dataset.bind,val);if(el.dataset.bind==='site.name'){document.getElementById('brandName').textContent=val||'Hytta';document.getElementById('footName').textContent=val||'hytta';document.getElementById('gateName').textContent=val||'Hytta';}}saveState();});});}
-function applyListEdit(kind,id,val){
-  if(kind==='year'){const b=findHist(id);if(b)b.year=val;}
-  else if(kind==='text'){const b=findHist(id);if(b)b.text=val;}
-  else if(kind==='cap'){const b=findHist(id);if(b)b.cap=val;}
-  else if(kind==='boble'){const b=findHist(id);if(b)b.text=val;}
-  else if(kind==='gh'){const g=state.guide.find(x=>x.id===id);if(g)g.heading=val;}
-  else if(kind==='gb'){const g=state.guide.find(x=>x.id===id);if(g)g.body=val;}
-  else if(kind==='gc'){const g=state.gallery.find(x=>x.id===id);if(g)g.cap=val;}
-  else if(kind==='btext'){const b=state.bubbles.find(x=>x.id===id);if(b)b.text=val;}
+function bindEditables(scope){(scope||document).querySelectorAll('[data-bind]').forEach(el=>{el.setAttribute('contenteditable',editMode?'true':'false');if(el._bound)return;el._bound=true;el.addEventListener('blur',()=>{const val=el.innerText.replace(/\u00a0/g,' ').trimEnd();const bind=el.dataset.bind;if(applyBind(bind,val)){saveState();return;}setByPath(state,bind,val);if(bind==='site.name'){document.getElementById('brandName').textContent=val||'Hytta';document.getElementById('footName').textContent=val||'hytta';document.getElementById('gateName').textContent=val||'Hytta';}saveState();});});}
+function applyBind(bind,val){
+  let m;
+  if(m=bind.match(/^__f(year|text|cap|boble)__(.+)$/)){const it=state.front.find(x=>x.id===m[2]);if(it){it[m[1]==='boble'?'text':m[1]]=val;}return true;}
+  if(m=bind.match(/^__(year|text|cap|boble)__(.+)$/)){const it=findHist(m[2]);if(it){it[m[1]==='boble'?'text':m[1]]=val;}return true;}
+  if(m=bind.match(/^__gh__(.+)$/)){const g=state.guide.find(x=>x.id===m[1]);if(g)g.heading=val;return true;}
+  if(m=bind.match(/^__gb__(.+)$/)){const g=state.guide.find(x=>x.id===m[1]);if(g)g.body=val;return true;}
+  if(m=bind.match(/^__gc__(.+)$/)){const g=state.gallery.find(x=>x.id===m[1]);if(g)g.cap=val;return true;}
+  if(m=bind.match(/^__btext__(.+)$/)){const b=state.bubbles.find(x=>x.id===m[1]);if(b)b.text=val;return true;}
+  if(m=bind.match(/^__ncap__(.+)$/)){const b=state.bubbles.find(x=>x.id===m[1]);if(b)b.cap=val;return true;}
+  return false;
 }
 function setByPath(obj,path,val){const p=path.split('.');let o=obj;for(let i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=val;}
 function findHist(id){return state.history.find(b=>b.id===id);}
@@ -411,10 +434,16 @@ function renderForside(){
       </div>
       <div class="hero-figure">${hero}${swap}</div>
     </div>
-    <div class="intro-band">${ed('site.intro',esc(s.intro),'div')}</div>`;
+    <div class="intro-band">${ed('site.intro',esc(s.intro),'div')}</div>
+    <div class="front-blocks">${state.front.map(b=>blockHTML(b,FRONT_CFG)).join('')}</div>
+    <div class="add-bar">
+      <button class="add-btn" onclick="addFront('text')">+ Tekst</button>
+      <button class="add-btn alt" onclick="addFront('image')">+ Bilde</button>
+      <button class="add-btn alt" onclick="addFront('boble')">+ Boble</button>
+    </div>`;
 }
 function renderHistorie(){
-  const blocks=state.history.map(blockHTML).join('');
+  const blocks=state.history.map(b=>blockHTML(b,HIST_CFG)).join('');
   document.getElementById('page-historie').innerHTML=`
     <div class="page-head"><span class="eyebrow">Tidslinje</span><h2>Årene som har gått</h2>${ed('historyIntro',esc(state.historyIntro),'p')}</div>
     <div class="timeline">${blocks||'<p class="empty-note">Ingen hendelser lagt til ennå.</p>'}</div>
@@ -425,38 +454,52 @@ function renderHistorie(){
       <button class="add-btn alt" onclick="addBlock('boble')">+ Boble</button>
     </div>`;
 }
-function blockHTML(b){
+const HIST_CFG={prefix:'',move:'moveBlock',del:'delBlock',pic:'hist',color:'cycleHistColor'};
+const FRONT_CFG={prefix:'f',move:'moveFront',del:'delFront',pic:'front',color:'cycleFrontColor'};
+function blockHTML(b,cfg){
+  cfg=cfg||HIST_CFG; const p=cfg.prefix;
   const tools=`<div class="blk-tools">
-    <button class="mini" onclick="moveBlock('${b.id}',-1)" aria-label="Flytt opp">↑</button>
-    <button class="mini" onclick="moveBlock('${b.id}',1)" aria-label="Flytt ned">↓</button>
-    ${b.type==='image'?`<button class="mini" onclick="pickImage('hist:${b.id}')">Bytt bilde</button>`:''}
-    ${b.type==='boble'?`<button class="mini" onclick="cycleHistColor('${b.id}')">Farge</button>`:''}
-    <button class="mini danger" onclick="delBlock('${b.id}')">Slett</button></div>`;
-  if(b.type==='year') return `<div class="block year">${ed('__year__'+b.id,esc(b.year),'div','ymark')}${tools}</div>`;
-  if(b.type==='text') return `<div class="block text">${ed('__text__'+b.id,esc(b.text),'div','body-txt')}${tools}</div>`;
-  if(b.type==='boble') return `<div class="block boble"><div class="bubble" style="${bubbleStyle(b.color)}">${ed('__boble__'+b.id,esc(b.text),'div','bub-txt')}${tools}</div></div>`;
+    <button class="mini" onclick="${cfg.move}('${b.id}',-1)" aria-label="Flytt opp">↑</button>
+    <button class="mini" onclick="${cfg.move}('${b.id}',1)" aria-label="Flytt ned">↓</button>
+    ${b.type==='image'?`<button class="mini" onclick="pickImage('${cfg.pic}:${b.id}')">Bytt bilde</button>`:''}
+    ${b.type==='boble'?`<button class="mini" onclick="${cfg.color}('${b.id}')">Farge</button>`:''}
+    <button class="mini danger" onclick="${cfg.del}('${b.id}')">Slett</button></div>`;
+  if(b.type==='year') return `<div class="block year">${ed('__'+p+'year__'+b.id,esc(b.year),'div','ymark')}${tools}</div>`;
+  if(b.type==='text') return `<div class="block text">${ed('__'+p+'text__'+b.id,esc(b.text),'div','body-txt')}${tools}</div>`;
+  if(b.type==='boble') return `<div class="block boble"><div class="bubble" style="${bubbleStyle(b.color)}">${ed('__'+p+'boble__'+b.id,esc(b.text),'div','bub-txt')}${tools}</div></div>`;
   if(b.type==='image'){
-    const inner=b.imgId?`<img data-imgid="${b.imgId}" alt="${esc(b.cap)}">`:phBox(editMode?`pickImage('hist:${b.id}')`:'','Bilde');
-    const cap=(editMode||b.cap)?`<div class="cap">${ed('__cap__'+b.id,esc(b.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
+    const inner=b.imgId?`<img data-imgid="${b.imgId}" alt="${esc(b.cap)}">`:phBox(editMode?`pickImage('${cfg.pic}:${b.id}')`:'','Bilde');
+    const cap=(editMode||b.cap)?`<div class="cap">${ed('__'+p+'cap__'+b.id,esc(b.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
     return `<div class="block image"><div class="photo">${inner}${cap}</div>${tools}</div>`;
   }
   return '';
 }
 function renderTavla(){
-  const items=state.bubbles.map(b=>`
-    <div class="bubble" style="${bubbleStyle(b.color)}">
-      ${ed('__btext__'+b.id,esc(b.text),'div','bub-txt')}
-      <div class="blk-tools">
-        <button class="mini" onclick="cycleBubble('${b.id}')">Farge</button>
-        <button class="mini" onclick="moveBubble('${b.id}',-1)">↑</button>
-        <button class="mini" onclick="moveBubble('${b.id}',1)">↓</button>
-        <button class="mini danger" onclick="delBubble('${b.id}')">Slett</button>
-      </div>
-    </div>`).join('');
+  const notes=state.bubbles.map(noteHTML).join('');
   document.getElementById('page-tavla').innerHTML=`
-    <div class="page-head"><span class="eyebrow">Familien</span><h2>Tavla</h2><p>Små hilsener, minner og beskjeder. Legg igjen en boble til de andre.</p></div>
-    ${items?`<div class="board">${items}</div>`:'<p class="empty-note">Ingen bobler ennå.</p>'}
-    <div class="add-bar"><button class="add-btn" onclick="addBubble()">+ Ny boble</button></div>`;
+    <div class="page-head"><span class="eyebrow">Familien</span><h2>Hyttebok</h2><p>Skriv en hilsen, et minne eller legg inn et bilde. I redigeringsmodus kan du dra hver lapp dit du vil.</p></div>
+    <div class="canvas" id="hyttebokCanvas">${notes}</div>
+    ${state.bubbles.length?'':'<p class="empty-note">Ingen innførsler ennå.</p>'}
+    <div class="add-bar"><button class="add-btn" onclick="addNote('text')">+ Notat</button><button class="add-btn alt" onclick="addNote('image')">+ Bilde</button></div>`;
+  setTimeout(fitCanvas,60);
+}
+function noteHTML(n){
+  const drag=`<div class="drag" onpointerdown="startNoteDrag(event,'${n.id}')" title="Dra for å flytte">⠿ flytt</div>`;
+  const style=`left:${n.x}%;top:${n.y}px;transform:rotate(${n.rot||0}deg)`;
+  if(n.kind==='image'){
+    const img=n.imgId?`<img data-imgid="${n.imgId}" alt="${esc(n.cap)}">`:phBox(editMode?`pickImage('note:${n.id}')`:'','Bilde');
+    const cap=(editMode||n.cap)?`<div class="cap">${ed('__ncap__'+n.id,esc(n.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
+    const tools=`<div class="blk-tools"><button class="mini" onclick="pickImage('note:${n.id}')">Bytt bilde</button><button class="mini danger" onclick="delNote('${n.id}')">Slett</button></div>`;
+    return `<div class="note img" data-note="${n.id}" style="${style}">${drag}<div class="photo">${img}${cap}</div>${tools}</div>`;
+  }
+  const tools=`<div class="blk-tools"><button class="mini" onclick="cycleNote('${n.id}')">Farge</button><button class="mini danger" onclick="delNote('${n.id}')">Slett</button></div>`;
+  return `<div class="note" data-note="${n.id}" style="${style}"><div class="bubble" style="${bubbleStyle(n.color)}">${drag}${ed('__btext__'+n.id,esc(n.text),'div','bub-txt')}</div>${tools}</div>`;
+}
+function fitCanvas(){
+  const c=document.getElementById('hyttebokCanvas'); if(!c)return;
+  let maxB=520;
+  c.querySelectorAll('.note').forEach(n=>{const b=n.offsetTop+n.offsetHeight; if(b>maxB)maxB=b;});
+  c.style.minHeight=(maxB+50)+'px';
 }
 function renderGuide(){
   const cards=state.guide.map(g=>`
@@ -484,11 +527,57 @@ function addBlock(type){const nb=type==='year'?{id:uid(),type:'year',year:'År'}
 function moveBlock(id,dir){const i=state.history.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.history.length)return;[state.history[i],state.history[j]]=[state.history[j],state.history[i]];reHist();}
 async function delBlock(id){if(!await confirmDialog('Slette dette elementet?'))return;state.history=state.history.filter(b=>b.id!==id);reHist();}
 function cycleHistColor(id){const b=findHist(id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reHist();}}
-function reTavla(){saveState();renderTavla();bindEditables(document.getElementById('page-tavla'));}
-function addBubble(){state.bubbles.push({id:uid(),text:'Skriv en hilsen…',color:state.bubbles.length%BUBBLE_COLORS.length});reTavla();}
-function moveBubble(id,dir){const i=state.bubbles.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.bubbles.length)return;[state.bubbles[i],state.bubbles[j]]=[state.bubbles[j],state.bubbles[i]];reTavla();}
-async function delBubble(id){if(!await confirmDialog('Slette denne boblen?'))return;state.bubbles=state.bubbles.filter(b=>b.id!==id);reTavla();}
-function cycleBubble(id){const b=state.bubbles.find(x=>x.id===id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reTavla();}}
+/* forside-blokker */
+function reFront(){saveState();renderForside();bindEditables(document.getElementById('page-forside'));hydrateImages();}
+function addFront(type){const nb=type==='boble'?{id:uid(),type:'boble',text:'Skriv her…',color:0}:type==='image'?{id:uid(),type:'image',imgId:null,cap:''}:{id:uid(),type:'text',text:'Skriv her…'};state.front.push(nb);reFront();}
+function moveFront(id,dir){const i=state.front.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.front.length)return;[state.front[i],state.front[j]]=[state.front[j],state.front[i]];reFront();}
+async function delFront(id){if(!await confirmDialog('Slette dette elementet?'))return;state.front=state.front.filter(b=>b.id!==id);reFront();}
+function cycleFrontColor(id){const b=state.front.find(x=>x.id===id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reFront();}}
+
+/* hyttebok-notater */
+function reTavla(){saveState();renderTavla();bindEditables(document.getElementById('page-tavla'));hydrateImages();}
+function addNote(kind){
+  const i=state.bubbles.length;
+  const n={id:uid(),kind:kind==='image'?'image':'text',x:4+(i%3)*26,y:24+Math.floor(i/3)*190,rot:(i%2?1.1:-1.1)};
+  if(n.kind==='image'){n.imgId=null;n.cap='';}else{n.text='Skriv her…';n.color=i%BUBBLE_COLORS.length;}
+  state.bubbles.push(n); reTavla();
+  if(n.kind==='image') pickImage('note:'+n.id);
+}
+async function delNote(id){if(!await confirmDialog('Slette dette?'))return;state.bubbles=state.bubbles.filter(b=>b.id!==id);reTavla();}
+function cycleNote(id){const b=state.bubbles.find(x=>x.id===id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reTavla();}}
+
+/* dra-og-slipp på hyttebok */
+let drag=null;
+function startNoteDrag(e,id){
+  if(role!=='admin'||!editMode)return;
+  e.preventDefault();
+  const noteEl=document.querySelector('.note[data-note="'+id+'"]');
+  const canvas=document.getElementById('hyttebokCanvas'); if(!noteEl||!canvas)return;
+  const cr=canvas.getBoundingClientRect(), nr=noteEl.getBoundingClientRect();
+  drag={id,noteEl,cr,offX:e.clientX-nr.left,offY:e.clientY-nr.top,cur:null};
+  noteEl.classList.add('dragging');
+  window.addEventListener('pointermove',onNoteDrag);
+  window.addEventListener('pointerup',endNoteDrag);
+}
+function onNoteDrag(e){
+  if(!drag)return;
+  const bw=drag.cr.width, nw=drag.noteEl.offsetWidth;
+  let leftPx=e.clientX-drag.cr.left-drag.offX;
+  let topPx=e.clientY-drag.cr.top-drag.offY;
+  leftPx=Math.max(0,Math.min(leftPx,bw-nw));
+  topPx=Math.max(0,topPx);
+  const xPct=leftPx/bw*100;
+  drag.noteEl.style.left=xPct+'%'; drag.noteEl.style.top=topPx+'px';
+  drag.cur={x:xPct,y:topPx};
+}
+function endNoteDrag(){
+  if(!drag)return;
+  window.removeEventListener('pointermove',onNoteDrag);
+  window.removeEventListener('pointerup',endNoteDrag);
+  drag.noteEl.classList.remove('dragging');
+  if(drag.cur){const n=state.bubbles.find(x=>x.id===drag.id);if(n){n.x=drag.cur.x;n.y=drag.cur.y;saveState();}}
+  fitCanvas(); drag=null;
+}
 function addGuide(){state.guide.push({id:uid(),heading:'Ny seksjon',body:'Skriv her…'});saveState();renderGuide();bindEditables(document.getElementById('page-guide'));}
 async function delGuide(id){if(!await confirmDialog('Slette denne seksjonen?'))return;state.guide=state.guide.filter(g=>g.id!==id);saveState();renderGuide();bindEditables(document.getElementById('page-guide'));}
 async function delPhoto(id){if(!await confirmDialog('Slette dette bildet?'))return;state.gallery=state.gallery.filter(g=>g.id!==id);saveState();renderBilder();bindEditables(document.getElementById('page-bilder'));hydrateImages();}
@@ -496,7 +585,7 @@ function clearHero(){state.site.heroImgId=null;saveState();renderForside();bindE
 
 /* ---------- file ---------- */
 function pickImage(target){fileTarget=target;const inp=document.getElementById('fileInput');inp.multiple=(target==='gallery');inp.value='';inp.click();}
-document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('hist:')){const b=findHist(fileTarget.split(':')[1]);if(b)b.imgId=id;}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
+document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('hist:')){const b=findHist(fileTarget.split(':')[1]);if(b)b.imgId=id;}else if(fileTarget&&fileTarget.startsWith('front:')){const b=state.front.find(x=>x.id===fileTarget.split(':')[1]);if(b)b.imgId=id;}else if(fileTarget&&fileTarget.startsWith('note:')){const b=state.bubbles.find(x=>x.id===fileTarget.split(':')[1]);if(b)b.imgId=id;}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
 
 /* ============================================================ AUTH / ROLES ============================================================ */
 async function gateLogin(){
