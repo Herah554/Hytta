@@ -156,6 +156,9 @@
   .note .drag:active{cursor:grabbing}
   .note.dragging{z-index:60}
   .note .blk-tools{margin-top:.4rem}
+  .note .body-txt{font-size:1.02rem;white-space:pre-wrap;background:var(--paper-card);border:1px solid var(--line);border-radius:12px;padding:.8rem .95rem;box-shadow:0 12px 26px -20px rgba(36,28,21,.55);color:var(--ink)}
+  .note.year{width:auto}
+  .note.year .ymark{font-family:var(--display);font-size:1.9rem;font-weight:600;color:var(--spruce-deep);background:var(--paper-card);border:1px solid var(--line);border-radius:10px;padding:.2rem .8rem;box-shadow:0 12px 26px -20px rgba(36,28,21,.55);display:inline-block}
 
   .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.3rem}
   .gcard{background:var(--paper-card);border:1px solid var(--line);border-radius:9px;padding:1.5rem 1.5rem 1.6rem;box-shadow:0 10px 26px -22px rgba(36,28,21,.5);position:relative}
@@ -323,7 +326,8 @@ function ensureShape(s){
   s.history=Array.isArray(s.history)?s.history:d.history;
   s.front=Array.isArray(s.front)?s.front:[];
   s.bubbles=Array.isArray(s.bubbles)?s.bubbles:[];
-  s.bubbles.forEach((b,i)=>{ if(!b.kind)b.kind='text'; if(typeof b.x!=='number')b.x=4+(i%3)*26; if(typeof b.y!=='number')b.y=24+Math.floor(i/3)*190; if(typeof b.rot!=='number')b.rot=(i%2?1.1:-1.1); });
+  [s.front,s.history].forEach(list=>list.forEach((it,i)=>{ if(typeof it.x!=='number')it.x=4+(i%3)*26; if(typeof it.y!=='number')it.y=24+Math.floor(i/3)*180; if(typeof it.rot!=='number')it.rot=(i%2?1.1:-1.1); }));
+  s.bubbles.forEach((b,i)=>{ if(!b.type)b.type=(b.kind==='image')?'image':'boble'; if(typeof b.x!=='number')b.x=4+(i%3)*26; if(typeof b.y!=='number')b.y=24+Math.floor(i/3)*180; if(typeof b.rot!=='number')b.rot=(i%2?1.1:-1.1); });
   s.guide=Array.isArray(s.guide)?s.guide:d.guide;
   s.gallery=Array.isArray(s.gallery)?s.gallery:[];
   s.historyIntro=s.historyIntro||d.historyIntro;
@@ -397,13 +401,10 @@ function ed(path,html,tag,cls){tag=tag||'div';cls=cls?' class="'+cls+'"':'';retu
 function bindEditables(scope){(scope||document).querySelectorAll('[data-bind]').forEach(el=>{el.setAttribute('contenteditable',editMode?'true':'false');if(el._bound)return;el._bound=true;el.addEventListener('blur',()=>{const val=el.innerText.replace(/\u00a0/g,' ').trimEnd();const bind=el.dataset.bind;if(applyBind(bind,val)){saveState();return;}setByPath(state,bind,val);if(bind==='site.name'){document.getElementById('brandName').textContent=val||'Hytta';document.getElementById('footName').textContent=val||'hytta';document.getElementById('gateName').textContent=val||'Hytta';}saveState();});});}
 function applyBind(bind,val){
   let m;
-  if(m=bind.match(/^__f(year|text|cap|boble)__(.+)$/)){const it=state.front.find(x=>x.id===m[2]);if(it){it[m[1]==='boble'?'text':m[1]]=val;}return true;}
-  if(m=bind.match(/^__(year|text|cap|boble)__(.+)$/)){const it=findHist(m[2]);if(it){it[m[1]==='boble'?'text':m[1]]=val;}return true;}
+  if(m=bind.match(/^it:([a-z]+):([a-z]+):(.+)$/)){const it=getList(m[1]).find(x=>x.id===m[3]);if(it){it[m[2]]=val;}return true;}
   if(m=bind.match(/^__gh__(.+)$/)){const g=state.guide.find(x=>x.id===m[1]);if(g)g.heading=val;return true;}
   if(m=bind.match(/^__gb__(.+)$/)){const g=state.guide.find(x=>x.id===m[1]);if(g)g.body=val;return true;}
   if(m=bind.match(/^__gc__(.+)$/)){const g=state.gallery.find(x=>x.id===m[1]);if(g)g.cap=val;return true;}
-  if(m=bind.match(/^__btext__(.+)$/)){const b=state.bubbles.find(x=>x.id===m[1]);if(b)b.text=val;return true;}
-  if(m=bind.match(/^__ncap__(.+)$/)){const b=state.bubbles.find(x=>x.id===m[1]);if(b)b.cap=val;return true;}
   return false;
 }
 function setByPath(obj,path,val){const p=path.split('.');let o=obj;for(let i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=val;}
@@ -416,7 +417,7 @@ function render(){
   document.getElementById('footName').textContent=state.site.name||'hytta';
   document.getElementById('gateName').textContent=state.site.name||'Hytta vår';
   renderForside();renderHistorie();renderTavla();renderGuide();renderBilder();
-  bindEditables();hydrateImages();updatedInfo();
+  bindEditables();hydrateImages();updatedInfo();setTimeout(fitAll,90);
 }
 function renderForside(){
   const s=state.site;
@@ -435,71 +436,53 @@ function renderForside(){
       <div class="hero-figure">${hero}${swap}</div>
     </div>
     <div class="intro-band">${ed('site.intro',esc(s.intro),'div')}</div>
-    <div class="front-blocks">${state.front.map(b=>blockHTML(b,FRONT_CFG)).join('')}</div>
-    <div class="add-bar">
-      <button class="add-btn" onclick="addFront('text')">+ Tekst</button>
-      <button class="add-btn alt" onclick="addFront('image')">+ Bilde</button>
-      <button class="add-btn alt" onclick="addFront('boble')">+ Boble</button>
-    </div>`;
+    ${canvasHTML('front')}
+    ${addBarHTML('front')}`;
 }
 function renderHistorie(){
-  const blocks=state.history.map(b=>blockHTML(b,HIST_CFG)).join('');
   document.getElementById('page-historie').innerHTML=`
-    <div class="page-head"><span class="eyebrow">Tidslinje</span><h2>Årene som har gått</h2>${ed('historyIntro',esc(state.historyIntro),'p')}</div>
-    <div class="timeline">${blocks||'<p class="empty-note">Ingen hendelser lagt til ennå.</p>'}</div>
-    <div class="add-bar">
-      <button class="add-btn" onclick="addBlock('year')">+ Årstall</button>
-      <button class="add-btn" onclick="addBlock('text')">+ Tekst</button>
-      <button class="add-btn alt" onclick="addBlock('image')">+ Bilde</button>
-      <button class="add-btn alt" onclick="addBlock('boble')">+ Boble</button>
-    </div>`;
+    <div class="page-head"><span class="eyebrow">Minner</span><h2>Historie</h2>${ed('historyIntro',esc(state.historyIntro),'p')}</div>
+    ${canvasHTML('history')}
+    ${addBarHTML('history')}`;
+  setTimeout(()=>fitCanvas('history'),60);
 }
-const HIST_CFG={prefix:'',move:'moveBlock',del:'delBlock',pic:'hist',color:'cycleHistColor'};
-const FRONT_CFG={prefix:'f',move:'moveFront',del:'delFront',pic:'front',color:'cycleFrontColor'};
-function blockHTML(b,cfg){
-  cfg=cfg||HIST_CFG; const p=cfg.prefix;
-  const tools=`<div class="blk-tools">
-    <button class="mini" onclick="${cfg.move}('${b.id}',-1)" aria-label="Flytt opp">↑</button>
-    <button class="mini" onclick="${cfg.move}('${b.id}',1)" aria-label="Flytt ned">↓</button>
-    ${b.type==='image'?`<button class="mini" onclick="pickImage('${cfg.pic}:${b.id}')">Bytt bilde</button>`:''}
-    ${b.type==='boble'?`<button class="mini" onclick="${cfg.color}('${b.id}')">Farge</button>`:''}
-    <button class="mini danger" onclick="${cfg.del}('${b.id}')">Slett</button></div>`;
-  if(b.type==='year') return `<div class="block year">${ed('__'+p+'year__'+b.id,esc(b.year),'div','ymark')}${tools}</div>`;
-  if(b.type==='text') return `<div class="block text">${ed('__'+p+'text__'+b.id,esc(b.text),'div','body-txt')}${tools}</div>`;
-  if(b.type==='boble') return `<div class="block boble"><div class="bubble" style="${bubbleStyle(b.color)}">${ed('__'+p+'boble__'+b.id,esc(b.text),'div','bub-txt')}${tools}</div></div>`;
-  if(b.type==='image'){
-    const inner=b.imgId?`<img data-imgid="${b.imgId}" alt="${esc(b.cap)}">`:phBox(editMode?`pickImage('${cfg.pic}:${b.id}')`:'','Bilde');
-    const cap=(editMode||b.cap)?`<div class="cap">${ed('__'+p+'cap__'+b.id,esc(b.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
-    return `<div class="block image"><div class="photo">${inner}${cap}</div>${tools}</div>`;
+function getList(name){return name==='history'?state.history:name==='front'?state.front:state.bubbles;}
+function itemHTML(it,listName){
+  const did=listName+':'+it.id;
+  const drag=`<div class="drag" onpointerdown="startDrag(event,'${listName}','${it.id}')" title="Dra for å flytte">⠿ flytt</div>`;
+  const style=`left:${it.x}%;top:${it.y}px;transform:rotate(${it.rot||0}deg)`;
+  const del=`<button class="mini danger" onclick="delItem('${listName}','${it.id}')">Slett</button>`;
+  if(it.type==='image'){
+    const img=it.imgId?`<img data-imgid="${it.imgId}" alt="${esc(it.cap)}">`:phBox(editMode?`pickImage('img:${did}')`:'','Bilde');
+    const cap=(editMode||it.cap)?`<div class="cap">${ed('it:'+listName+':cap:'+it.id,esc(it.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
+    return `<div class="note img" data-item="${did}" style="${style}">${drag}<div class="photo">${img}${cap}</div><div class="blk-tools"><button class="mini" onclick="pickImage('img:${did}')">Bytt bilde</button>${del}</div></div>`;
   }
-  return '';
+  if(it.type==='year'){
+    return `<div class="note year" data-item="${did}" style="${style}">${drag}${ed('it:'+listName+':year:'+it.id,esc(it.year),'div','ymark')}<div class="blk-tools">${del}</div></div>`;
+  }
+  if(it.type==='boble'){
+    return `<div class="note" data-item="${did}" style="${style}">${drag}<div class="bubble" style="${bubbleStyle(it.color)}">${ed('it:'+listName+':text:'+it.id,esc(it.text),'div','bub-txt')}</div><div class="blk-tools"><button class="mini" onclick="cycleItemColor('${listName}','${it.id}')">Farge</button>${del}</div></div>`;
+  }
+  return `<div class="note text" data-item="${did}" style="${style}">${drag}${ed('it:'+listName+':text:'+it.id,esc(it.text),'div','body-txt')}<div class="blk-tools">${del}</div></div>`;
 }
+function canvasHTML(listName){return `<div class="canvas" id="canvas-${listName}">${getList(listName).map(it=>itemHTML(it,listName)).join('')}</div>`;}
+function addBarHTML(listName){
+  return `<div class="add-bar">
+    <button class="add-btn" onclick="addItem('${listName}','year')">+ Årstall</button>
+    <button class="add-btn" onclick="addItem('${listName}','text')">+ Tekst</button>
+    <button class="add-btn alt" onclick="addItem('${listName}','boble')">+ Boble</button>
+    <button class="add-btn alt" onclick="addItem('${listName}','image')">+ Bilde</button>
+  </div>`;
+}
+function fitCanvas(listName){const c=document.getElementById('canvas-'+listName);if(!c)return;let maxB=60;c.querySelectorAll('.note').forEach(n=>{const b=n.offsetTop+n.offsetHeight;if(b>maxB)maxB=b;});c.style.minHeight=(maxB+50)+'px';}
+function fitAll(){['front','history','hyttebok'].forEach(fitCanvas);}
 function renderTavla(){
-  const notes=state.bubbles.map(noteHTML).join('');
   document.getElementById('page-tavla').innerHTML=`
     <div class="page-head"><span class="eyebrow">Familien</span><h2>Hyttebok</h2><p>Skriv en hilsen, et minne eller legg inn et bilde. I redigeringsmodus kan du dra hver lapp dit du vil.</p></div>
-    <div class="canvas" id="hyttebokCanvas">${notes}</div>
+    ${canvasHTML('hyttebok')}
     ${state.bubbles.length?'':'<p class="empty-note">Ingen innførsler ennå.</p>'}
-    <div class="add-bar"><button class="add-btn" onclick="addNote('text')">+ Notat</button><button class="add-btn alt" onclick="addNote('image')">+ Bilde</button></div>`;
-  setTimeout(fitCanvas,60);
-}
-function noteHTML(n){
-  const drag=`<div class="drag" onpointerdown="startNoteDrag(event,'${n.id}')" title="Dra for å flytte">⠿ flytt</div>`;
-  const style=`left:${n.x}%;top:${n.y}px;transform:rotate(${n.rot||0}deg)`;
-  if(n.kind==='image'){
-    const img=n.imgId?`<img data-imgid="${n.imgId}" alt="${esc(n.cap)}">`:phBox(editMode?`pickImage('note:${n.id}')`:'','Bilde');
-    const cap=(editMode||n.cap)?`<div class="cap">${ed('__ncap__'+n.id,esc(n.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
-    const tools=`<div class="blk-tools"><button class="mini" onclick="pickImage('note:${n.id}')">Bytt bilde</button><button class="mini danger" onclick="delNote('${n.id}')">Slett</button></div>`;
-    return `<div class="note img" data-note="${n.id}" style="${style}">${drag}<div class="photo">${img}${cap}</div>${tools}</div>`;
-  }
-  const tools=`<div class="blk-tools"><button class="mini" onclick="cycleNote('${n.id}')">Farge</button><button class="mini danger" onclick="delNote('${n.id}')">Slett</button></div>`;
-  return `<div class="note" data-note="${n.id}" style="${style}"><div class="bubble" style="${bubbleStyle(n.color)}">${drag}${ed('__btext__'+n.id,esc(n.text),'div','bub-txt')}</div>${tools}</div>`;
-}
-function fitCanvas(){
-  const c=document.getElementById('hyttebokCanvas'); if(!c)return;
-  let maxB=520;
-  c.querySelectorAll('.note').forEach(n=>{const b=n.offsetTop+n.offsetHeight; if(b>maxB)maxB=b;});
-  c.style.minHeight=(maxB+50)+'px';
+    ${addBarHTML('hyttebok')}`;
+  setTimeout(()=>fitCanvas('hyttebok'),60);
 }
 function renderGuide(){
   const cards=state.guide.map(g=>`
@@ -521,62 +504,57 @@ function renderBilder(){
     <div class="add-bar"><button class="add-btn" onclick="pickImage('gallery')">+ Legg til bilder</button></div>`;
 }
 
-/* ---------- actions ---------- */
-function reHist(){saveState();renderHistorie();bindEditables(document.getElementById('page-historie'));hydrateImages();}
-function addBlock(type){const nb=type==='year'?{id:uid(),type:'year',year:'År'}:type==='text'?{id:uid(),type:'text',text:'Skriv her…'}:type==='boble'?{id:uid(),type:'boble',text:'Skriv her…',color:0}:{id:uid(),type:'image',imgId:null,cap:''};state.history.push(nb);reHist();}
-function moveBlock(id,dir){const i=state.history.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.history.length)return;[state.history[i],state.history[j]]=[state.history[j],state.history[i]];reHist();}
-async function delBlock(id){if(!await confirmDialog('Slette dette elementet?'))return;state.history=state.history.filter(b=>b.id!==id);reHist();}
-function cycleHistColor(id){const b=findHist(id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reHist();}}
-/* forside-blokker */
-function reFront(){saveState();renderForside();bindEditables(document.getElementById('page-forside'));hydrateImages();}
-function addFront(type){const nb=type==='boble'?{id:uid(),type:'boble',text:'Skriv her…',color:0}:type==='image'?{id:uid(),type:'image',imgId:null,cap:''}:{id:uid(),type:'text',text:'Skriv her…'};state.front.push(nb);reFront();}
-function moveFront(id,dir){const i=state.front.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.front.length)return;[state.front[i],state.front[j]]=[state.front[j],state.front[i]];reFront();}
-async function delFront(id){if(!await confirmDialog('Slette dette elementet?'))return;state.front=state.front.filter(b=>b.id!==id);reFront();}
-function cycleFrontColor(id){const b=state.front.find(x=>x.id===id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reFront();}}
-
-/* hyttebok-notater */
-function reTavla(){saveState();renderTavla();bindEditables(document.getElementById('page-tavla'));hydrateImages();}
-function addNote(kind){
-  const i=state.bubbles.length;
-  const n={id:uid(),kind:kind==='image'?'image':'text',x:4+(i%3)*26,y:24+Math.floor(i/3)*190,rot:(i%2?1.1:-1.1)};
-  if(n.kind==='image'){n.imgId=null;n.cap='';}else{n.text='Skriv her…';n.color=i%BUBBLE_COLORS.length;}
-  state.bubbles.push(n); reTavla();
-  if(n.kind==='image') pickImage('note:'+n.id);
+/* ---------- felles tavle-handlere ---------- */
+function reBoard(listName){
+  saveState();
+  if(listName==='front')renderForside();
+  else if(listName==='history')renderHistorie();
+  else renderTavla();
+  const pg=listName==='front'?'page-forside':listName==='history'?'page-historie':'page-tavla';
+  bindEditables(document.getElementById(pg)); hydrateImages();
 }
-async function delNote(id){if(!await confirmDialog('Slette dette?'))return;state.bubbles=state.bubbles.filter(b=>b.id!==id);reTavla();}
-function cycleNote(id){const b=state.bubbles.find(x=>x.id===id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reTavla();}}
+function addItem(listName,type){
+  const list=getList(listName); const i=list.length;
+  const it={id:uid(),type,x:4+(i%3)*26,y:24+Math.floor(i/3)*180,rot:(i%2?1.1:-1.1)};
+  if(type==='image'){it.imgId=null;it.cap='';}
+  else if(type==='year'){it.year='År';}
+  else if(type==='boble'){it.text='Skriv her…';it.color=i%BUBBLE_COLORS.length;}
+  else {it.text='Skriv her…';}
+  list.push(it); reBoard(listName);
+  if(type==='image') pickImage('img:'+listName+':'+it.id);
+}
+async function delItem(listName,id){if(!await confirmDialog('Slette dette?'))return;const list=getList(listName);const idx=list.findIndex(x=>x.id===id);if(idx>=0)list.splice(idx,1);reBoard(listName);}
+function cycleItemColor(listName,id){const it=getList(listName).find(x=>x.id===id);if(it){it.color=((it.color||0)+1)%BUBBLE_COLORS.length;reBoard(listName);}}
 
-/* dra-og-slipp på hyttebok */
+/* dra-og-slipp (alle tavler) */
 let drag=null;
-function startNoteDrag(e,id){
+function startDrag(e,listName,id){
   if(role!=='admin'||!editMode)return;
   e.preventDefault();
-  const noteEl=document.querySelector('.note[data-note="'+id+'"]');
-  const canvas=document.getElementById('hyttebokCanvas'); if(!noteEl||!canvas)return;
+  const noteEl=document.querySelector('.note[data-item="'+listName+':'+id+'"]');
+  if(!noteEl)return; const canvas=noteEl.closest('.canvas'); if(!canvas)return;
   const cr=canvas.getBoundingClientRect(), nr=noteEl.getBoundingClientRect();
-  drag={id,noteEl,cr,offX:e.clientX-nr.left,offY:e.clientY-nr.top,cur:null};
+  drag={listName,id,noteEl,cr,offX:e.clientX-nr.left,offY:e.clientY-nr.top,cur:null};
   noteEl.classList.add('dragging');
-  window.addEventListener('pointermove',onNoteDrag);
-  window.addEventListener('pointerup',endNoteDrag);
+  window.addEventListener('pointermove',onDrag);
+  window.addEventListener('pointerup',endDrag);
 }
-function onNoteDrag(e){
+function onDrag(e){
   if(!drag)return;
   const bw=drag.cr.width, nw=drag.noteEl.offsetWidth;
-  let leftPx=e.clientX-drag.cr.left-drag.offX;
-  let topPx=e.clientY-drag.cr.top-drag.offY;
-  leftPx=Math.max(0,Math.min(leftPx,bw-nw));
-  topPx=Math.max(0,topPx);
-  const xPct=leftPx/bw*100;
-  drag.noteEl.style.left=xPct+'%'; drag.noteEl.style.top=topPx+'px';
-  drag.cur={x:xPct,y:topPx};
+  let lx=Math.max(0,Math.min(e.clientX-drag.cr.left-drag.offX,bw-nw));
+  let ty=Math.max(0,e.clientY-drag.cr.top-drag.offY);
+  const xp=lx/bw*100;
+  drag.noteEl.style.left=xp+'%'; drag.noteEl.style.top=ty+'px';
+  drag.cur={x:xp,y:ty};
 }
-function endNoteDrag(){
+function endDrag(){
   if(!drag)return;
-  window.removeEventListener('pointermove',onNoteDrag);
-  window.removeEventListener('pointerup',endNoteDrag);
+  window.removeEventListener('pointermove',onDrag);
+  window.removeEventListener('pointerup',endDrag);
   drag.noteEl.classList.remove('dragging');
-  if(drag.cur){const n=state.bubbles.find(x=>x.id===drag.id);if(n){n.x=drag.cur.x;n.y=drag.cur.y;saveState();}}
-  fitCanvas(); drag=null;
+  if(drag.cur){const it=getList(drag.listName).find(x=>x.id===drag.id);if(it){it.x=drag.cur.x;it.y=drag.cur.y;saveState();}}
+  fitCanvas(drag.listName); drag=null;
 }
 function addGuide(){state.guide.push({id:uid(),heading:'Ny seksjon',body:'Skriv her…'});saveState();renderGuide();bindEditables(document.getElementById('page-guide'));}
 async function delGuide(id){if(!await confirmDialog('Slette denne seksjonen?'))return;state.guide=state.guide.filter(g=>g.id!==id);saveState();renderGuide();bindEditables(document.getElementById('page-guide'));}
@@ -585,7 +563,7 @@ function clearHero(){state.site.heroImgId=null;saveState();renderForside();bindE
 
 /* ---------- file ---------- */
 function pickImage(target){fileTarget=target;const inp=document.getElementById('fileInput');inp.multiple=(target==='gallery');inp.value='';inp.click();}
-document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('hist:')){const b=findHist(fileTarget.split(':')[1]);if(b)b.imgId=id;}else if(fileTarget&&fileTarget.startsWith('front:')){const b=state.front.find(x=>x.id===fileTarget.split(':')[1]);if(b)b.imgId=id;}else if(fileTarget&&fileTarget.startsWith('note:')){const b=state.bubbles.find(x=>x.id===fileTarget.split(':')[1]);if(b)b.imgId=id;}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
+document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('img:')){const parts=fileTarget.split(':');const it=getList(parts[1]).find(x=>x.id===parts[2]);if(it)it.imgId=id;}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
 
 /* ============================================================ AUTH / ROLES ============================================================ */
 async function gateLogin(){
