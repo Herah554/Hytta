@@ -288,6 +288,13 @@ const BUBBLE_COLORS=[
 ];
 function configured(){return SUPABASE_URL && !SUPABASE_URL.startsWith('DIN_') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('DIN_');}
 function isAdminEmail(e){return e && ADMIN_EMAIL && e.toLowerCase()===ADMIN_EMAIL.toLowerCase();}
+async function resolveRole(email){
+  try{
+    const {data,error}=await sb.from('admins').select('email');
+    if(!error && Array.isArray(data)) return data.some(a=>(a.email||'').toLowerCase()===(email||'').toLowerCase())?'admin':'family';
+  }catch(e){}
+  return isAdminEmail(email)?'admin':'family';
+}
 
 function defaultState(){
   return {
@@ -575,7 +582,7 @@ async function gateLogin(){
   try{
     const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error) throw error;
-    role=isAdminEmail(data.user.email)?'admin':'family';
+    role=await resolveRole(data.user.email);
     await loadState(); enterSite();
   }catch(e){ err.textContent='Feil e-post eller passord.'; }
   finally{ btn.disabled=false; btn.textContent='Logg inn'; }
@@ -640,7 +647,7 @@ async function init(){
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   try{
     const {data:{session}}=await sb.auth.getSession();
-    if(session && session.user){ role=isAdminEmail(session.user.email)?'admin':'family'; await loadState(); enterSite(); return; }
+    if(session && session.user){ role=await resolveRole(session.user.email); await loadState(); enterSite(); return; }
   }catch(e){}
   setTimeout(()=>document.getElementById('gateEmail').focus(),80);
 }
