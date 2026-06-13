@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hyttas historie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Spectral:ital,wght@0,400;0,500;1,400&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --wood-dark:#241C15; --wood-dark-2:#2E251B;
+    --parchment:#EFE7D6; --parchment-2:#E7DCC6; --paper-card:#F4EEE0;
+    --ink:#2A2118; --ink-soft:#6B5C46;
+    --spruce:#33503E; --spruce-deep:#284030;
+    --barn:#99382A; --barn-deep:#7C2C20;
+    --brass:#B0822E; --brass-soft:#C99A45;
+    --line:rgba(42,33,24,0.16); --line-soft:rgba(42,33,24,0.09);
+    --shadow:0 18px 40px -24px rgba(36,28,21,.55);
+    --display:'Fraunces',Georgia,serif; --body:'Spectral',Georgia,serif; --sans:'Work Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;font-family:var(--body);color:var(--ink);background-color:var(--parchment);
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(176,130,46,.06), transparent 55%),
+      radial-gradient(circle at 82% 78%, rgba(51,80,62,.07), transparent 55%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit} img{max-width:100%;display:block}
+
+  /* LOGIN GATE */
+  #gate{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;padding:1.5rem;background:radial-gradient(circle at 50% 28%, #3C4C3E 0%, #2A2118 62%, #1C1610 100%)}
+  body.gated #gate{display:flex}
+  body.gated header.nav,body.gated main,body.gated footer{display:none}
+  #gate::before{content:"";position:absolute;inset:0;opacity:.06;background-repeat:no-repeat;background-position:center 16%;background-size:min(560px,80vw);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M10 120 L60 55 L95 100 L130 50 L190 120 Z'/%3E%3Cpath d='M70 120 L70 88 L92 70 L114 88 L114 120'/%3E%3Cpath d='M82 120 L82 100 L102 100 L102 120'/%3E%3Ccircle cx='158' cy='38' r='12'/%3E%3C/svg%3E")}
+  .gate-card{position:relative;background:var(--parchment);border-radius:16px;max-width:400px;width:100%;padding:2.4rem 2.2rem;box-shadow:0 40px 90px -30px rgba(0,0,0,.7);border:1px solid rgba(176,130,46,.3);text-align:center}
+  .gate-pin{width:14px;height:14px;border-radius:50%;background:var(--brass-soft);margin:0 auto .9rem;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+  .gate-eyebrow{font-family:var(--sans);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--barn);font-weight:600}
+  .gate-card h1{font-family:var(--display);font-weight:600;font-size:2rem;margin:.4rem 0 .3rem;color:var(--ink)}
+  .gate-card .sub{color:var(--ink-soft);font-style:italic;font-size:.98rem;margin:0 0 1.5rem}
+  .gate-card input{width:100%;padding:.75rem .9rem;font-family:var(--sans);font-size:1rem;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);margin-bottom:.6rem}
+  .gate-card input:focus{outline:2px solid var(--barn);border-color:var(--barn)}
+  .gate-card .gbtn{width:100%;margin-top:.3rem;font-family:var(--sans);font-weight:600;font-size:.95rem;background:var(--barn);color:#fff;border:none;border-radius:10px;padding:.8rem;cursor:pointer;transition:.18s}
+  .gate-card .gbtn:hover{background:var(--barn-deep)}
+  .gate-card .gbtn:disabled{opacity:.5;cursor:not-allowed}
+  .gate-err{color:var(--barn);font-family:var(--sans);font-size:.85rem;min-height:1.1em;margin-top:.7rem}
+  .gate-hint{font-family:var(--sans);font-size:.74rem;color:var(--ink-soft);margin-top:1.3rem;line-height:1.5;border-top:1px solid var(--line-soft);padding-top:1rem}
+  .setup-note{display:none;text-align:left;font-family:var(--sans);font-size:.82rem;color:var(--ink);background:#F6E9C9;border:1px solid var(--brass);border-radius:10px;padding:.9rem 1rem;margin-bottom:1rem;line-height:1.5}
+  body.notconfigured .setup-note{display:block}
+  body.notconfigured .gate-fields{display:none}
+  .setup-note code{background:#EAD9AE;padding:.05rem .3rem;border-radius:4px;font-size:.92em}
+
+  /* NAV */
+  header.nav{position:sticky;top:0;z-index:40;background:var(--wood-dark);color:var(--parchment);border-bottom:3px solid var(--barn-deep)}
+  .nav-inner{max-width:1080px;margin:0 auto;padding:.65rem 1.4rem;display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap}
+  .brand{font-family:var(--display);font-weight:600;font-size:1.18rem;color:var(--parchment);display:flex;align-items:center;gap:.55rem;margin-right:auto;cursor:pointer;background:none;border:none;padding:0}
+  .brand .pin{width:13px;height:13px;border-radius:50%;background:var(--brass-soft);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25);flex:none}
+  nav.links{display:flex;gap:.15rem;flex-wrap:wrap}
+  nav.links button{font-family:var(--sans);font-size:.8rem;letter-spacing:.04em;text-transform:uppercase;color:#D9CDB6;background:none;border:none;cursor:pointer;padding:.5rem .7rem;border-radius:6px;transition:color .2s,background .2s}
+  nav.links button:hover{color:#fff;background:rgba(255,255,255,.06)}
+  nav.links button.active{color:#fff}
+  nav.links button.active::after{content:"";display:block;height:2px;background:var(--brass-soft);margin-top:3px;border-radius:2px}
+  .nav-tools{display:flex;align-items:center;gap:.5rem}
+  .icon-btn{font-family:var(--sans);font-size:.76rem;font-weight:500;background:rgba(255,255,255,.07);color:#E9DFCB;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:.42rem .8rem;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;transition:background .2s,border-color .2s}
+  .icon-btn:hover{background:rgba(255,255,255,.14)}
+  .icon-btn.on{background:var(--barn);border-color:var(--barn);color:#fff}
+  .save-flash{font-family:var(--sans);font-size:.72rem;color:var(--brass-soft);opacity:0;transition:opacity .3s;white-space:nowrap}
+  .save-flash.show{opacity:1}
+
+  main{max-width:1080px;margin:0 auto;padding:0 1.4rem 5rem}
+  .page{display:none;animation:fade .4s ease}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .eyebrow{font-family:var(--sans);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--barn);font-weight:600}
+  h1,h2,h3{font-family:var(--display);color:var(--ink);font-weight:600;line-height:1.1}
+
+  .hero{padding:3.2rem 0 2rem;display:grid;grid-template-columns:1.05fr .95fr;gap:2.6rem;align-items:center}
+  .hero h1{font-size:clamp(2.4rem,6vw,4rem);margin:.5rem 0 .8rem;letter-spacing:-.01em}
+  .hero .tagline{font-size:1.18rem;color:var(--ink-soft);font-style:italic;max-width:34ch}
+  .built{margin-top:1.8rem;display:inline-flex;align-items:baseline;gap:.6rem;border-top:1px solid var(--line);padding-top:1rem;font-family:var(--sans)}
+  .built .num{font-family:var(--display);font-size:2.1rem;color:var(--spruce);font-weight:600;line-height:1}
+  .built .lab{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+  .hero-figure{position:relative}
+  .frame{background:var(--paper-card);padding:.7rem .7rem 1.1rem;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:3px;position:relative}
+  .frame img{width:100%;height:100%;object-fit:cover;border-radius:1px}
+  .frame .cap{font-family:var(--sans);font-size:.78rem;color:var(--ink-soft);text-align:center;padding-top:.6rem}
+  .ph{width:100%;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(135deg,#EAE0CD,#EAE0CD 10px,#E4D8C2 10px,#E4D8C2 20px);border-radius:1px;color:var(--ink-soft)}
+  .ph svg{width:54%;max-width:230px;opacity:.5}
+  .ph.click{cursor:pointer}
+  .ph.click:hover{filter:brightness(.97)}
+  .intro-band{margin-top:1.2rem;padding:2.2rem 0;border-top:1px solid var(--line);font-size:1.12rem;max-width:60ch}
+
+  body.editing [contenteditable="true"]{outline:1px dashed var(--brass);outline-offset:3px;border-radius:2px}
+  body.editing [contenteditable="true"]:focus{outline:2px solid var(--barn);background:rgba(176,130,46,.06)}
+  [contenteditable="true"]{cursor:text}
+
+  .page-head{padding:3rem 0 1.4rem;border-bottom:1px solid var(--line);margin-bottom:2.5rem}
+  .page-head h2{font-size:clamp(2rem,5vw,3rem);margin:.4rem 0 .5rem}
+  .page-head p{color:var(--ink-soft);max-width:55ch;font-size:1.08rem;margin:0}
+  .timeline{position:relative;padding-left:2.6rem;max-width:760px}
+  .timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--barn),var(--brass) 60%,transparent);border-radius:2px}
+  .block{position:relative;margin-bottom:2.4rem}
+  .block.year::before{content:"";position:absolute;left:-2.6rem;top:.15rem;width:20px;height:20px;border-radius:50%;background:var(--brass);box-shadow:0 0 0 4px var(--parchment),inset 0 0 0 2px rgba(0,0,0,.22)}
+  .block.year .ymark{font-family:var(--display);font-size:1.7rem;color:var(--spruce-deep);font-weight:600;letter-spacing:.01em}
+  .block.text::before,.block.image::before,.block.boble::before{content:"";position:absolute;left:-2.18rem;top:.7rem;width:8px;height:8px;border-radius:50%;background:var(--parchment);box-shadow:0 0 0 2px var(--barn)}
+  .block.text .body-txt{font-size:1.08rem;white-space:pre-wrap}
+  .block.image .photo{background:var(--paper-card);padding:.6rem .6rem .9rem;border:1px solid var(--line);box-shadow:var(--shadow);max-width:430px;border-radius:3px;transform:rotate(-1.3deg);transition:transform .3s;position:relative}
+  .block.image .photo:hover{transform:rotate(0deg)}
+  .block.image .photo::before{content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(-2deg);width:74px;height:20px;background:rgba(176,130,46,.32);border:1px solid rgba(176,130,46,.4)}
+  .block.image .cap{font-family:var(--sans);font-size:.78rem;color:var(--ink-soft);text-align:center;padding-top:.55rem}
+  .block.boble{max-width:460px}
+
+  .blk-tools{display:none;gap:.35rem;margin-top:.5rem;flex-wrap:wrap}
+  body.editing .blk-tools{display:flex}
+  .mini{font-family:var(--sans);font-size:.72rem;background:var(--paper-card);border:1px solid var(--line);color:var(--ink-soft);border-radius:5px;padding:.28rem .55rem;cursor:pointer;transition:.15s}
+  .mini:hover{border-color:var(--barn);color:var(--barn)}
+  .mini.danger:hover{border-color:var(--barn);color:#fff;background:var(--barn)}
+  .add-bar{display:none;gap:.5rem;flex-wrap:wrap;margin:1.5rem 0 0;padding-top:1.4rem;border-top:1px dashed var(--line)}
+  body.editing .add-bar{display:flex}
+  .add-btn{font-family:var(--sans);font-size:.82rem;font-weight:500;background:var(--spruce);color:#F2EEDF;border:none;border-radius:7px;padding:.55rem .95rem;cursor:pointer;transition:.18s}
+  .add-btn:hover{background:var(--spruce-deep)}
+  .add-btn.alt{background:var(--paper-card);color:var(--spruce-deep);border:1px solid var(--spruce)}
+  .add-btn.alt:hover{background:#E9E0CC}
+
+  .board{columns:3 260px;column-gap:1.3rem}
+  .bubble{position:relative;break-inside:avoid;margin:0 0 1.7rem;background:var(--bbg,#F5EFE0);border:1px solid var(--bbd,#E0D4BC);border-radius:20px;padding:1.15rem 1.25rem 1.2rem;box-shadow:0 14px 30px -22px rgba(36,28,21,.6);transition:transform .25s}
+  .board .bubble:nth-child(3n+1){transform:rotate(-1deg)}
+  .board .bubble:nth-child(3n+2){transform:rotate(.8deg)}
+  .board .bubble:hover{transform:rotate(0deg) translateY(-2px)}
+  .bubble::after{content:"";position:absolute;left:30px;bottom:-13px;width:0;height:0;border-left:14px solid transparent;border-right:7px solid transparent;border-top:14px solid var(--bbg,#F5EFE0)}
+  .bubble::before{content:"";position:absolute;left:30px;bottom:-15px;width:0;height:0;border-left:15px solid transparent;border-right:8px solid transparent;border-top:15px solid var(--bbd,#E0D4BC)}
+  .bub-txt{font-size:1.05rem;line-height:1.55;white-space:pre-wrap;min-height:1.3em;color:var(--ink)}
+  .bubble .blk-tools{margin-top:.7rem}
+  .block.boble .bubble{transform:none}
+  .block.boble .bubble:hover{transform:none}
+
+  .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.3rem}
+  .gcard{background:var(--paper-card);border:1px solid var(--line);border-radius:9px;padding:1.5rem 1.5rem 1.6rem;box-shadow:0 10px 26px -22px rgba(36,28,21,.5);position:relative}
+  .gcard::before{content:"";position:absolute;left:0;top:1.5rem;bottom:1.5rem;width:3px;background:var(--spruce);border-radius:3px}
+  .gcard h3{font-size:1.3rem;margin:0 0 .6rem;padding-left:.5rem}
+  .gcard .gbody{font-size:1.02rem;white-space:pre-wrap;padding-left:.5rem;color:var(--ink)}
+  .gcard .blk-tools{margin-top:.9rem;padding-left:.5rem}
+
+  .gallery{columns:3 240px;column-gap:1.1rem}
+  .gitem{break-inside:avoid;margin-bottom:1.1rem;position:relative}
+  .gitem .frame2{background:var(--paper-card);padding:.55rem .55rem .8rem;border:1px solid var(--line);box-shadow:0 10px 24px -20px rgba(36,28,21,.5);border-radius:3px;transition:transform .25s}
+  .gitem:hover .frame2{transform:translateY(-3px)}
+  .gitem .gcap{font-family:var(--sans);font-size:.76rem;color:var(--ink-soft);text-align:center;padding-top:.5rem}
+  .gitem .blk-tools{justify-content:center;margin-top:.4rem}
+  .empty-note{color:var(--ink-soft);font-style:italic;padding:2.5rem 0;text-align:center;border:1px dashed var(--line);border-radius:9px}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(28,22,16,.55);display:none;align-items:center;justify-content:center;z-index:80;padding:1rem;backdrop-filter:blur(2px)}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--parchment);border-radius:12px;max-width:440px;width:100%;padding:2rem;box-shadow:0 30px 70px -20px rgba(0,0,0,.5);border:1px solid var(--line)}
+  .modal h3{font-size:1.5rem;margin:0 0 .4rem}
+  .modal p{color:var(--ink-soft);font-size:.95rem;margin:.2rem 0 1.2rem}
+  .modal label{font-family:var(--sans);font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);display:block;margin:1rem 0 .35rem}
+  .modal input[type=text]{width:100%;padding:.7rem .85rem;font-family:var(--sans);font-size:1rem;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  .modal input:focus{outline:2px solid var(--barn);border-color:var(--barn)}
+  .modal-actions{display:flex;gap:.6rem;margin-top:1.5rem;flex-wrap:wrap}
+  .btn{font-family:var(--sans);font-weight:500;font-size:.9rem;border:none;border-radius:8px;padding:.7rem 1.2rem;cursor:pointer;transition:.18s}
+  .btn.primary{background:var(--barn);color:#fff}
+  .btn.primary:hover{background:var(--barn-deep)}
+  .btn.ghost{background:transparent;color:var(--ink-soft);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--ink-soft)}
+  .modal .err{color:var(--barn);font-size:.85rem;font-family:var(--sans);min-height:1.1em;margin-top:.5rem}
+  .settings-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.4rem}
+  .hr{height:1px;background:var(--line);margin:1.4rem 0;border:none}
+
+  footer{border-top:1px solid var(--line);margin-top:3rem;padding:2rem 1.4rem;text-align:center;font-family:var(--sans);font-size:.8rem;color:var(--ink-soft)}
+  footer .heart{color:var(--barn)}
+  .edit-banner{display:none;background:var(--spruce-deep);color:#EBE3D0;font-family:var(--sans);font-size:.82rem;text-align:center;padding:.5rem 1rem}
+  body.editing .edit-banner{display:block}
+  .file-hidden{display:none}
+
+  @media (max-width:760px){
+    .hero{grid-template-columns:1fr;gap:1.8rem;padding-top:2.2rem}
+    .nav-inner{padding:.6rem 1rem}
+    nav.links button{padding:.45rem .5rem;font-size:.72rem}
+    main{padding:0 1rem 4rem}
+    .gallery,.board{columns:2 150px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+    .block.image .photo,.bubble{transform:none!important}
+  }
+  :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+</style>
+</head>
+<body class="gated">
+
+<!-- LOGIN GATE -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-pin"></div>
+    <span class="gate-eyebrow">Privat</span>
+    <h1 id="gateName">Hytta vår</h1>
+    <p class="sub">Logg inn for å se historien</p>
+    <div class="setup-note">
+      <strong>Siden er ikke koblet til databasen ennå.</strong><br>
+      Åpne filen og fyll inn <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code> og <code>ADMIN_EMAIL</code> øverst i koden. Se oppskriften (OPPSETT.md).
+    </div>
+    <div class="gate-fields">
+      <input type="email" id="gateEmail" autocomplete="username" placeholder="E-post" aria-label="E-post">
+      <input type="password" id="gatePw" autocomplete="current-password" placeholder="Passord" aria-label="Passord">
+      <button class="gbtn" id="gateBtn" onclick="gateLogin()">Logg inn</button>
+      <div class="gate-err" id="gateErr"></div>
+    </div>
+    <p class="gate-hint">To innlogginger: familien kan se alt, admin kan også bygge og redigere. Brukere og passord styres i Supabase.</p>
+  </div>
+</div>
+
+<header class="nav">
+  <div class="nav-inner">
+    <button class="brand" onclick="go('forside')"><span class="pin"></span><span id="brandName">Hytta vår</span></button>
+    <nav class="links" id="navLinks">
+      <button data-page="forside" onclick="go('forside')">Forside</button>
+      <button data-page="historie" onclick="go('historie')">Historie</button>
+      <button data-page="tavla" onclick="go('tavla')">Tavla</button>
+      <button data-page="guide" onclick="go('guide')">Hytteguide</button>
+      <button data-page="bilder" onclick="go('bilder')">Bilder</button>
+    </nav>
+    <div class="nav-tools">
+      <span class="save-flash" id="saveFlash"></span>
+      <button class="icon-btn" id="gearBtn" onclick="openSettings()" style="display:none">⚙ Innstillinger</button>
+      <button class="icon-btn" id="lockBtn" onclick="toggleEdit()" style="display:none">✎ Rediger</button>
+      <button class="icon-btn" id="logoutBtn" onclick="logout()" style="display:none">Logg ut</button>
+    </div>
+  </div>
+  <div class="edit-banner">Redigeringsmodus er på — klikk på tekst for å endre den. Alt lagres i databasen.</div>
+</header>
+
+<main>
+  <section class="page active" id="page-forside"></section>
+  <section class="page" id="page-historie"></section>
+  <section class="page" id="page-tavla"></section>
+  <section class="page" id="page-guide"></section>
+  <section class="page" id="page-bilder"></section>
+</main>
+
+<footer>Laget med <span class="heart">♥</span> for <span id="footName">hytta</span> · <span id="updatedInfo"></span></footer>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBox"></div></div>
+<input type="file" id="fileInput" class="file-hidden" accept="image/*" multiple>
+
+<script>
+/* ============================================================
+   KONFIGURASJON — fyll inn dine egne verdier fra Supabase
+   ============================================================ */
+const SUPABASE_URL  = 'https://uksnqxoewljthyprdlgu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_v3HruDBZP8P8KiO_pu1bYw_8zaPT1F3';
+const ADMIN_EMAIL   = 'dahasol@outlook.com';
+
+/* ============================================================ */
+let sb=null;
+let state=defaultState();
+let editMode=false, role=null, current='forside', fileTarget=null;
+const imgCache={};
+const BUBBLE_COLORS=[
+  {bg:'#F5EFE0',bd:'#E0D4BC'},{bg:'#E4EADE',bd:'#C8D5BE'},{bg:'#F1DED7',bd:'#E2C2B4'},
+  {bg:'#E1E8EC',bd:'#C7D4DB'},{bg:'#F3E6C8',bd:'#E2CFA0'}
+];
+function configured(){return SUPABASE_URL && !SUPABASE_URL.startsWith('DIN_') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('DIN_');}
+function isAdminEmail(e){return e && ADMIN_EMAIL && e.toLowerCase()===ADMIN_EMAIL.toLowerCase();}
+
+function defaultState(){
+  return {
+    site:{name:'Hytta vår',tagline:'Et lite sted i fjellet — og alle årene som har gått her.',builtYear:'1962',heroImgId:null,heroCap:'',
+      intro:'Velkommen til historien om hytta. Her samler vi minnene, bildene og alt det praktiske på ett sted.'},
+    historyIntro:'Fra første spadetak til i dag. En tidslinje over årene, menneskene og øyeblikkene som har formet stedet.',
+    history:[
+      {id:uid(),type:'year',year:'1962'},
+      {id:uid(),type:'text',text:'Tomta ble ryddet og grunnmuren støpt sommeren dette året. Det meste ble gjort for hånd.'},
+      {id:uid(),type:'image',imgId:null,cap:'Det aller første bildet av hytta'},
+      {id:uid(),type:'year',year:'1985'},
+      {id:uid(),type:'text',text:'Verandaen kom til, og endelig fikk vi innlagt vann. Skriv inn deres egne minner her.'}
+    ],
+    bubbles:[
+      {id:uid(),text:'«Husker du sommeren det regnet hele uka og vi spilte kort til midnatt?»',color:1},
+      {id:uid(),text:'Legg igjen en hilsen eller et minne her — trykk på Rediger.',color:2}
+    ],
+    guideIntro:'Det praktiske: alt en gjest eller ny i familien trenger å vite for et godt opphold.',
+    guide:[
+      {id:uid(),heading:'Ankomst og nøkkel',body:'Hvor finner man nøkkelen? Hvordan kommer man seg hit?'},
+      {id:uid(),heading:'Strøm og oppvarming',body:'Hvor er sikringsskapet, hvordan fyrer man riktig, og hva må slås av.'},
+      {id:uid(),heading:'Vann',body:'Påsetting og avstenging av vann, og hva man må huske ved frost.'},
+      {id:uid(),heading:'Internett og nettverk',body:'Nettverksnavn og passord, og hvor ruteren står.'},
+      {id:uid(),heading:'Søppel og resirkulering',body:'Hvor leveres søppel og pant, og hva som sorteres hvor.'},
+      {id:uid(),heading:'Før du drar',body:'Sjekkliste: vann av, ovn slukket, vinduer lukket, dører låst.'}
+    ],
+    gallery:[],
+    updatedAt:null
+  };
+}
+function uid(){return 'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function ensureShape(s){
+  const d=defaultState();
+  s.site=Object.assign({},d.site,s.site||{});
+  s.history=Array.isArray(s.history)?s.history:d.history;
+  s.bubbles=Array.isArray(s.bubbles)?s.bubbles:[];
+  s.guide=Array.isArray(s.guide)?s.guide:d.guide;
+  s.gallery=Array.isArray(s.gallery)?s.gallery:[];
+  s.historyIntro=s.historyIntro||d.historyIntro;
+  s.guideIntro=s.guideIntro||d.guideIntro;
+}
+
+/* ============================================================ DATABASE ============================================================ */
+async function loadState(){
+  try{
+    const {data,error}=await sb.from('site_content').select('data').eq('id',1).maybeSingle();
+    if(error) throw error;
+    if(data && data.data){ state=data.data; }
+    else { state=defaultState(); if(role==='admin') await saveState(true); }
+  }catch(e){ flashSaved('Kunne ikke hente innhold'); state=defaultState(); }
+  ensureShape(state); render();
+}
+let saveTimer=null;
+function saveState(immediate){
+  if(role!=='admin') return;
+  state.updatedAt=Date.now();
+  clearTimeout(saveTimer);
+  const doSave=async()=>{
+    try{
+      const {error}=await sb.from('site_content').upsert({id:1,data:state,updated_at:new Date().toISOString()});
+      if(error) throw error;
+      flashSaved('Lagret ✓'); updatedInfo();
+    }catch(e){ flashSaved('Kunne ikke lagre'); }
+  };
+  if(immediate) return doSave();
+  saveTimer=setTimeout(doSave,300);
+}
+async function getImage(id){
+  if(!id) return null;
+  if(imgCache[id]) return imgCache[id];
+  try{
+    const {data,error}=await sb.from('site_images').select('data').eq('id',id).maybeSingle();
+    if(error) throw error;
+    if(data && data.data){ imgCache[id]=data.data; return data.data; }
+  }catch(e){}
+  return null;
+}
+async function putImage(dataURL){
+  const id='i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  imgCache[id]=dataURL;
+  try{ const {error}=await sb.from('site_images').insert({id,data:dataURL}); if(error) throw error; }
+  catch(e){ flashSaved('Klarte ikke å lagre bildet'); }
+  return id;
+}
+function setupRealtime(){
+  try{
+    sb.channel('site-live').on('postgres_changes',{event:'*',schema:'public',table:'site_content'},payload=>{
+      if(editMode) return; // ikke overskriv mens admin skriver
+      if(payload.new && payload.new.data){ state=payload.new.data; ensureShape(state); render(); }
+    }).subscribe();
+  }catch(e){}
+}
+
+/* ---------- images render ---------- */
+function compressImage(file,maxDim=1500,quality=0.82){return new Promise((res,rej)=>{const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{let{width,height}=img;if(width>maxDim||height>maxDim){if(width>=height){height=Math.round(height*maxDim/width);width=maxDim;}else{width=Math.round(width*maxDim/height);height=maxDim;}}const c=document.createElement('canvas');c.width=width;c.height=height;const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);res(c.toDataURL('image/jpeg',quality));};img.onerror=rej;img.src=reader.result;};reader.onerror=rej;reader.readAsDataURL(file);});}
+function hydrateImages(scope){(scope||document).querySelectorAll('img[data-imgid]').forEach(async el=>{if(el.dataset.loaded)return;const src=await getImage(el.dataset.imgid);if(src){el.src=src;el.dataset.loaded='1';}});}
+
+/* ---------- placeholders ---------- */
+function phSvg(){return `<svg viewBox="0 0 200 150" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M10 120 L60 55 L95 100 L130 50 L190 120 Z"/><path d="M70 120 L70 88 L92 70 L114 88 L114 120"/><path d="M82 120 L82 100 L102 100 L102 120"/><circle cx="158" cy="38" r="12"/></svg>`;}
+function phBox(click,label){return `<div class="ph ${click?'click':''}" ${click?`onclick="${click}"`:''} role="${click?'button':'img'}" aria-label="${label||'Bilde mangler'}">${phSvg()}</div>`;}
+
+/* ---------- nav ---------- */
+function go(page){current=page;document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+page).classList.add('active');document.querySelectorAll('nav.links button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));window.scrollTo({top:0,behavior:'smooth'});}
+
+/* ---------- editable binding ---------- */
+function ed(path,html,tag,cls){tag=tag||'div';cls=cls?' class="'+cls+'"':'';return `<${tag}${cls} data-bind="${path}" ${editMode?'contenteditable="true"':''} spellcheck="false">${html}</${tag}>`;}
+function bindEditables(scope){(scope||document).querySelectorAll('[data-bind]').forEach(el=>{el.setAttribute('contenteditable',editMode?'true':'false');if(el._bound)return;el._bound=true;el.addEventListener('blur',()=>{const val=el.innerText.replace(/\u00a0/g,' ').trimEnd();const m=el.dataset.bind.match(/^__(year|text|cap|gh|gb|gc|btext|boble)__(.+)$/);if(m){applyListEdit(m[1],m[2],val);}else{setByPath(state,el.dataset.bind,val);if(el.dataset.bind==='site.name'){document.getElementById('brandName').textContent=val||'Hytta';document.getElementById('footName').textContent=val||'hytta';document.getElementById('gateName').textContent=val||'Hytta';}}saveState();});});}
+function applyListEdit(kind,id,val){
+  if(kind==='year'){const b=findHist(id);if(b)b.year=val;}
+  else if(kind==='text'){const b=findHist(id);if(b)b.text=val;}
+  else if(kind==='cap'){const b=findHist(id);if(b)b.cap=val;}
+  else if(kind==='boble'){const b=findHist(id);if(b)b.text=val;}
+  else if(kind==='gh'){const g=state.guide.find(x=>x.id===id);if(g)g.heading=val;}
+  else if(kind==='gb'){const g=state.guide.find(x=>x.id===id);if(g)g.body=val;}
+  else if(kind==='gc'){const g=state.gallery.find(x=>x.id===id);if(g)g.cap=val;}
+  else if(kind==='btext'){const b=state.bubbles.find(x=>x.id===id);if(b)b.text=val;}
+}
+function setByPath(obj,path,val){const p=path.split('.');let o=obj;for(let i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=val;}
+function findHist(id){return state.history.find(b=>b.id===id);}
+function bubbleStyle(ci){const c=BUBBLE_COLORS[(ci||0)%BUBBLE_COLORS.length];return `--bbg:${c.bg};--bbd:${c.bd}`;}
+
+/* ============================================================ RENDER ============================================================ */
+function render(){
+  document.getElementById('brandName').textContent=state.site.name||'Hytta';
+  document.getElementById('footName').textContent=state.site.name||'hytta';
+  document.getElementById('gateName').textContent=state.site.name||'Hytta vår';
+  renderForside();renderHistorie();renderTavla();renderGuide();renderBilder();
+  bindEditables();hydrateImages();updatedInfo();
+}
+function renderForside(){
+  const s=state.site;
+  const hero=s.heroImgId
+    ?`<div class="frame"><img data-imgid="${s.heroImgId}" alt="${esc(s.heroCap)||'Hytta'}">${(editMode||s.heroCap)?`<div class="cap">${ed('site.heroCap',esc(s.heroCap)||(editMode?'Legg til bildetekst…':''))}</div>`:''}</div>`
+    :`<div class="frame">${phBox(editMode?"pickImage('hero')":'','Forsidebilde')}${editMode?'<div class="cap">Klikk for å legge til forsidebilde</div>':''}</div>`;
+  const swap=(editMode&&s.heroImgId)?`<div class="blk-tools" style="display:flex;justify-content:center;margin-top:.6rem"><button class="mini" onclick="pickImage('hero')">Bytt bilde</button><button class="mini danger" onclick="clearHero()">Fjern</button></div>`:'';
+  document.getElementById('page-forside').innerHTML=`
+    <div class="hero">
+      <div class="hero-text">
+        <span class="eyebrow">Hyttas historie</span>
+        ${ed('site.name',esc(s.name),'h1')}
+        ${ed('site.tagline',esc(s.tagline),'p','tagline')}
+        <div class="built"><span class="num">${ed('site.builtYear',esc(s.builtYear),'span')}</span><span class="lab">Bygget</span></div>
+      </div>
+      <div class="hero-figure">${hero}${swap}</div>
+    </div>
+    <div class="intro-band">${ed('site.intro',esc(s.intro),'div')}</div>`;
+}
+function renderHistorie(){
+  const blocks=state.history.map(blockHTML).join('');
+  document.getElementById('page-historie').innerHTML=`
+    <div class="page-head"><span class="eyebrow">Tidslinje</span><h2>Årene som har gått</h2>${ed('historyIntro',esc(state.historyIntro),'p')}</div>
+    <div class="timeline">${blocks||'<p class="empty-note">Ingen hendelser lagt til ennå.</p>'}</div>
+    <div class="add-bar">
+      <button class="add-btn" onclick="addBlock('year')">+ Årstall</button>
+      <button class="add-btn" onclick="addBlock('text')">+ Tekst</button>
+      <button class="add-btn alt" onclick="addBlock('image')">+ Bilde</button>
+      <button class="add-btn alt" onclick="addBlock('boble')">+ Boble</button>
+    </div>`;
+}
+function blockHTML(b){
+  const tools=`<div class="blk-tools">
+    <button class="mini" onclick="moveBlock('${b.id}',-1)" aria-label="Flytt opp">↑</button>
+    <button class="mini" onclick="moveBlock('${b.id}',1)" aria-label="Flytt ned">↓</button>
+    ${b.type==='image'?`<button class="mini" onclick="pickImage('hist:${b.id}')">Bytt bilde</button>`:''}
+    ${b.type==='boble'?`<button class="mini" onclick="cycleHistColor('${b.id}')">Farge</button>`:''}
+    <button class="mini danger" onclick="delBlock('${b.id}')">Slett</button></div>`;
+  if(b.type==='year') return `<div class="block year">${ed('__year__'+b.id,esc(b.year),'div','ymark')}${tools}</div>`;
+  if(b.type==='text') return `<div class="block text">${ed('__text__'+b.id,esc(b.text),'div','body-txt')}${tools}</div>`;
+  if(b.type==='boble') return `<div class="block boble"><div class="bubble" style="${bubbleStyle(b.color)}">${ed('__boble__'+b.id,esc(b.text),'div','bub-txt')}${tools}</div></div>`;
+  if(b.type==='image'){
+    const inner=b.imgId?`<img data-imgid="${b.imgId}" alt="${esc(b.cap)}">`:phBox(editMode?`pickImage('hist:${b.id}')`:'','Bilde');
+    const cap=(editMode||b.cap)?`<div class="cap">${ed('__cap__'+b.id,esc(b.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
+    return `<div class="block image"><div class="photo">${inner}${cap}</div>${tools}</div>`;
+  }
+  return '';
+}
+function renderTavla(){
+  const items=state.bubbles.map(b=>`
+    <div class="bubble" style="${bubbleStyle(b.color)}">
+      ${ed('__btext__'+b.id,esc(b.text),'div','bub-txt')}
+      <div class="blk-tools">
+        <button class="mini" onclick="cycleBubble('${b.id}')">Farge</button>
+        <button class="mini" onclick="moveBubble('${b.id}',-1)">↑</button>
+        <button class="mini" onclick="moveBubble('${b.id}',1)">↓</button>
+        <button class="mini danger" onclick="delBubble('${b.id}')">Slett</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('page-tavla').innerHTML=`
+    <div class="page-head"><span class="eyebrow">Familien</span><h2>Tavla</h2><p>Små hilsener, minner og beskjeder. Legg igjen en boble til de andre.</p></div>
+    ${items?`<div class="board">${items}</div>`:'<p class="empty-note">Ingen bobler ennå.</p>'}
+    <div class="add-bar"><button class="add-btn" onclick="addBubble()">+ Ny boble</button></div>`;
+}
+function renderGuide(){
+  const cards=state.guide.map(g=>`
+    <div class="gcard">${ed('__gh__'+g.id,esc(g.heading),'h3')}${ed('__gb__'+g.id,esc(g.body),'div','gbody')}
+      <div class="blk-tools"><button class="mini danger" onclick="delGuide('${g.id}')">Slett seksjon</button></div></div>`).join('');
+  document.getElementById('page-guide').innerHTML=`
+    <div class="page-head"><span class="eyebrow">Praktisk</span><h2>Hytteguide</h2>${ed('guideIntro',esc(state.guideIntro),'p')}</div>
+    <div class="guide-grid">${cards||'<p class="empty-note">Ingen seksjoner ennå.</p>'}</div>
+    <div class="add-bar"><button class="add-btn" onclick="addGuide()">+ Ny seksjon</button></div>`;
+}
+function renderBilder(){
+  const items=state.gallery.map(g=>`
+    <div class="gitem"><div class="frame2"><img data-imgid="${g.imgId}" alt="${esc(g.cap)}"></div>
+      ${(editMode||g.cap)?`<div class="gcap">${ed('__gc__'+g.id,esc(g.cap)||(editMode?'Bildetekst…':''))}</div>`:''}
+      <div class="blk-tools"><button class="mini danger" onclick="delPhoto('${g.id}')">Slett</button></div></div>`).join('');
+  document.getElementById('page-bilder').innerHTML=`
+    <div class="page-head"><span class="eyebrow">Album</span><h2>Bilder</h2><p>Minner fra hytta gjennom årene.</p></div>
+    ${items?`<div class="gallery">${items}</div>`:'<p class="empty-note">Ingen bilder lagt til ennå.</p>'}
+    <div class="add-bar"><button class="add-btn" onclick="pickImage('gallery')">+ Legg til bilder</button></div>`;
+}
+
+/* ---------- actions ---------- */
+function reHist(){saveState();renderHistorie();bindEditables(document.getElementById('page-historie'));hydrateImages();}
+function addBlock(type){const nb=type==='year'?{id:uid(),type:'year',year:'År'}:type==='text'?{id:uid(),type:'text',text:'Skriv her…'}:type==='boble'?{id:uid(),type:'boble',text:'Skriv her…',color:0}:{id:uid(),type:'image',imgId:null,cap:''};state.history.push(nb);reHist();}
+function moveBlock(id,dir){const i=state.history.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.history.length)return;[state.history[i],state.history[j]]=[state.history[j],state.history[i]];reHist();}
+async function delBlock(id){if(!await confirmDialog('Slette dette elementet?'))return;state.history=state.history.filter(b=>b.id!==id);reHist();}
+function cycleHistColor(id){const b=findHist(id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reHist();}}
+function reTavla(){saveState();renderTavla();bindEditables(document.getElementById('page-tavla'));}
+function addBubble(){state.bubbles.push({id:uid(),text:'Skriv en hilsen…',color:state.bubbles.length%BUBBLE_COLORS.length});reTavla();}
+function moveBubble(id,dir){const i=state.bubbles.findIndex(b=>b.id===id),j=i+dir;if(j<0||j>=state.bubbles.length)return;[state.bubbles[i],state.bubbles[j]]=[state.bubbles[j],state.bubbles[i]];reTavla();}
+async function delBubble(id){if(!await confirmDialog('Slette denne boblen?'))return;state.bubbles=state.bubbles.filter(b=>b.id!==id);reTavla();}
+function cycleBubble(id){const b=state.bubbles.find(x=>x.id===id);if(b){b.color=((b.color||0)+1)%BUBBLE_COLORS.length;reTavla();}}
+function addGuide(){state.guide.push({id:uid(),heading:'Ny seksjon',body:'Skriv her…'});saveState();renderGuide();bindEditables(document.getElementById('page-guide'));}
+async function delGuide(id){if(!await confirmDialog('Slette denne seksjonen?'))return;state.guide=state.guide.filter(g=>g.id!==id);saveState();renderGuide();bindEditables(document.getElementById('page-guide'));}
+async function delPhoto(id){if(!await confirmDialog('Slette dette bildet?'))return;state.gallery=state.gallery.filter(g=>g.id!==id);saveState();renderBilder();bindEditables(document.getElementById('page-bilder'));hydrateImages();}
+function clearHero(){state.site.heroImgId=null;saveState();renderForside();bindEditables(document.getElementById('page-forside'));}
+
+/* ---------- file ---------- */
+function pickImage(target){fileTarget=target;const inp=document.getElementById('fileInput');inp.multiple=(target==='gallery');inp.value='';inp.click();}
+document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('hist:')){const b=findHist(fileTarget.split(':')[1]);if(b)b.imgId=id;}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
+
+/* ============================================================ AUTH / ROLES ============================================================ */
+async function gateLogin(){
+  const email=document.getElementById('gateEmail').value.trim();
+  const pw=document.getElementById('gatePw').value;
+  const btn=document.getElementById('gateBtn');
+  const err=document.getElementById('gateErr');
+  err.textContent=''; btn.disabled=true; btn.textContent='Logger inn…';
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+    if(error) throw error;
+    role=isAdminEmail(data.user.email)?'admin':'family';
+    await loadState(); enterSite();
+  }catch(e){ err.textContent='Feil e-post eller passord.'; }
+  finally{ btn.disabled=false; btn.textContent='Logg inn'; }
+}
+function enterSite(){
+  document.body.classList.remove('gated');
+  document.getElementById('gate').style.display='none';
+  document.getElementById('logoutBtn').style.display='inline-flex';
+  document.getElementById('lockBtn').style.display = role==='admin'?'inline-flex':'none';
+  setupRealtime();
+  go('forside');
+}
+async function logout(){
+  if(editMode) exitEdit();
+  try{ if(sb) await sb.auth.signOut(); }catch(e){}
+  role=null;
+  document.body.classList.add('gated');
+  document.getElementById('gate').style.display='flex';
+  document.getElementById('gatePw').value='';
+  document.getElementById('gateErr').textContent='';
+  ['logoutBtn','lockBtn','gearBtn'].forEach(id=>document.getElementById(id).style.display='none');
+  setTimeout(()=>document.getElementById('gateEmail').focus(),60);
+}
+function toggleEdit(){if(role!=='admin')return;if(editMode)exitEdit();else enterEdit();}
+function enterEdit(){editMode=true;document.body.classList.add('editing');const lb=document.getElementById('lockBtn');lb.classList.add('on');lb.textContent='✓ Ferdig';document.getElementById('gearBtn').style.display='inline-flex';render();}
+function exitEdit(){editMode=false;document.body.classList.remove('editing');const lb=document.getElementById('lockBtn');lb.classList.remove('on');lb.textContent='✎ Rediger';document.getElementById('gearBtn').style.display='none';render();}
+
+/* ---------- settings ---------- */
+function openSettings(){
+  openModal(`
+    <h3>Innstillinger</h3>
+    <p>Brukere og passord styres i Supabase (Authentication → Users). Her kan du ta vare på en sikkerhetskopi.</p>
+    <label>Sikkerhetskopi</label>
+    <p style="margin:.2rem 0 .6rem">Last ned alt innhold og bilder som én fil, eller gjenopprett fra en tidligere fil.</p>
+    <div class="settings-row">
+      <button class="btn ghost" onclick="exportBackup()">⤓ Last ned kopi</button>
+      <button class="btn ghost" onclick="document.getElementById('restoreInput').click()">⤒ Gjenopprett</button>
+    </div>
+    <div class="err" id="setMsg"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Lukk</button></div>
+    <input type="file" id="restoreInput" accept="application/json" class="file-hidden">`);
+  setTimeout(()=>{const ri=document.getElementById('restoreInput');if(ri)ri.addEventListener('change',importBackup);},50);
+}
+function collectImageIds(s){const ids=new Set();if(s.site.heroImgId)ids.add(s.site.heroImgId);s.history.forEach(b=>{if(b.type==='image'&&b.imgId)ids.add(b.imgId);});s.gallery.forEach(g=>{if(g.imgId)ids.add(g.imgId);});return [...ids];}
+async function exportBackup(){const m=document.getElementById('setMsg');m.textContent='Lager kopi…';const ids=collectImageIds(state);const images={};for(const id of ids){const d=await getImage(id);if(d)images[id]=d;}const bundle={app:'hyttas-historie',version:3,exportedAt:new Date().toISOString(),state,images};const blob=new Blob([JSON.stringify(bundle)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='hytte-kopi-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);m.textContent='Kopi lastet ned ✓';}
+async function importBackup(e){const f=e.target.files[0];if(!f)return;const m=document.getElementById('setMsg');try{const b=JSON.parse(await f.text());if(!b.state)throw new Error('bad');if(b.images){for(const id in b.images){imgCache[id]=b.images[id];try{await sb.from('site_images').upsert({id,data:b.images[id]});}catch(_){}}}state=b.state;ensureShape(state);await saveState(true);closeModal();render();flashSaved('Gjenopprettet ✓');}catch(err){if(m)m.textContent='Ugyldig fil eller manglende tilgang.';}}
+
+/* ---------- modal ---------- */
+function openModal(html){document.getElementById('modalBox').innerHTML=html;document.getElementById('modalBg').classList.add('show');}
+function closeModal(){document.getElementById('modalBg').classList.remove('show');}
+document.getElementById('modalBg').addEventListener('click',e=>{if(e.target.id==='modalBg')closeModal();});
+function confirmDialog(msg){return new Promise(resolve=>{openModal(`<h3 style="font-size:1.3rem">${esc(msg)}</h3><p>Dette kan ikke angres.</p><div class="modal-actions"><button class="btn primary" id="cfYes">Slett</button><button class="btn ghost" id="cfNo">Avbryt</button></div>`);document.getElementById('cfYes').onclick=()=>{closeModal();resolve(true);};document.getElementById('cfNo').onclick=()=>{closeModal();resolve(false);};});}
+function flashSaved(msg){const el=document.getElementById('saveFlash');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2200);}
+function updatedInfo(){const el=document.getElementById('updatedInfo');el.textContent=state.updatedAt?'Sist oppdatert '+new Date(state.updatedAt).toLocaleDateString('no-NO',{day:'numeric',month:'long',year:'numeric'}):'';}
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ============================================================ INIT ============================================================ */
+async function init(){
+  ensureShape(state);
+  document.getElementById('gateName').textContent=state.site.name;
+  if(!configured()){ document.body.classList.add('notconfigured'); return; }
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(session && session.user){ role=isAdminEmail(session.user.email)?'admin':'family'; await loadState(); enterSite(); return; }
+  }catch(e){}
+  setTimeout(()=>document.getElementById('gateEmail').focus(),80);
+}
+document.getElementById('gatePw').addEventListener('keydown',e=>{if(e.key==='Enter')gateLogin();});
+document.getElementById('gateEmail').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gatePw').focus();});
+init();
+</script>
+</body>
+</html>
