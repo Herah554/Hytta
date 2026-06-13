@@ -160,6 +160,39 @@
   .note.year{width:auto}
   .note.year .ymark{font-family:var(--display);font-size:1.9rem;font-weight:600;color:var(--spruce-deep);background:var(--paper-card);border:1px solid var(--line);border-radius:10px;padding:.2rem .8rem;box-shadow:0 12px 26px -20px rgba(36,28,21,.55);display:inline-block}
 
+  /* hyttebok som bok */
+  .book{max-width:640px;margin:1.5rem auto 0}
+  .book-page{background:var(--paper-card);border:1px solid var(--line);border-left:6px solid var(--brass-soft);border-radius:4px 12px 12px 4px;box-shadow:0 24px 54px -30px rgba(36,28,21,.6), inset 22px 0 30px -28px rgba(36,28,21,.45);min-height:460px;padding:2rem 2rem 2.2rem 2.4rem;background-image:repeating-linear-gradient(transparent,transparent 31px,rgba(42,33,24,.07) 32px)}
+  .book-page.flip{animation:flip .35s ease}
+  @keyframes flip{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+  .bblock{margin-bottom:1.3rem}
+  .book-txt{font-size:1.06rem;white-space:pre-wrap;line-height:1.7;color:var(--ink)}
+  .bblock.image .photo{background:#fff;padding:.5rem .5rem .8rem;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:3px;max-width:400px;margin:.3rem auto}
+  .bblock.image .photo img{width:100%;border-radius:1px}
+  .bblock.image .cap{font-family:var(--sans);font-size:.78rem;color:var(--ink-soft);text-align:center;padding-top:.5rem}
+  .book-empty{color:var(--ink-soft);font-style:italic;text-align:center;padding-top:3rem}
+  .book-nav{display:flex;align-items:center;justify-content:center;gap:1.2rem;margin-top:1.2rem}
+  .pagebtn{font-family:var(--sans);font-size:.85rem;background:var(--wood-dark);color:var(--parchment);border:none;border-radius:8px;padding:.5rem .95rem;cursor:pointer;transition:.15s}
+  .pagebtn:hover:not(:disabled){background:#000}
+  .pagebtn:disabled{opacity:.3;cursor:default}
+  .pageind{font-family:var(--sans);font-size:.82rem;color:var(--ink-soft)}
+
+  /* vær-kort */
+  .note.weather{width:235px}
+  .wcard{background:linear-gradient(160deg,#33503E,#222F26);color:#EEE7D6;border-radius:14px;padding:1rem 1.1rem;box-shadow:0 16px 34px -22px rgba(0,0,0,.6)}
+  .wplace{font-family:var(--sans);font-size:.82rem;opacity:.92;margin-bottom:.55rem;display:flex;gap:.3rem;align-items:center}
+  .wplace [contenteditable]{color:#fff}
+  .wbig{display:flex;align-items:center;gap:.55rem}
+  .wicon{font-size:2.2rem;line-height:1}
+  .wtemp{font-family:var(--display);font-size:1.95rem;font-weight:600}
+  .wday{font-family:var(--sans);font-size:.78rem;opacity:.9;margin-bottom:.25rem;text-transform:capitalize}
+  .wdesc{font-family:var(--sans);font-size:.84rem;opacity:.95;margin-top:.2rem}
+  .wmeta{font-family:var(--sans);font-size:.76rem;opacity:.85;margin-top:.4rem}
+  .wnav{display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;gap:.4rem}
+  .wnav button{background:rgba(255,255,255,.16);color:#fff;border:none;border-radius:7px;padding:.25rem .6rem;cursor:pointer;font-size:.82rem}
+  .wnav button:disabled{opacity:.3;cursor:default}
+  .wlbl{font-family:var(--sans);font-size:.74rem;opacity:.85}
+
   .guide-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.3rem}
   .gcard{background:var(--paper-card);border:1px solid var(--line);border-radius:9px;padding:1.5rem 1.5rem 1.6rem;box-shadow:0 10px 26px -22px rgba(36,28,21,.5);position:relative}
   .gcard::before{content:"";position:absolute;left:0;top:1.5rem;bottom:1.5rem;width:3px;background:var(--spruce);border-radius:3px}
@@ -281,6 +314,7 @@ const ADMIN_EMAIL   = 'dahasol@outlook.com';
 let sb=null;
 let state=defaultState();
 let editMode=false, role=null, current='forside', fileTarget=null;
+let bookPage=0; const weatherCache={}, weatherDay={};
 const imgCache={};
 const BUBBLE_COLORS=[
   {bg:'#F5EFE0',bd:'#E0D4BC'},{bg:'#E4EADE',bd:'#C8D5BE'},{bg:'#F1DED7',bd:'#E2C2B4'},
@@ -323,6 +357,7 @@ function defaultState(){
       {id:uid(),heading:'Før du drar',body:'Sjekkliste: vann av, ovn slukket, vinduer lukket, dører låst.'}
     ],
     gallery:[],
+    book:[{id:uid(),blocks:[{id:uid(),type:'text',text:'Velkommen til hytteboka. Skriv en hilsen, et minne, eller legg inn et bilde — og bla gjennom sidene.'}]}],
     updatedAt:null
   };
 }
@@ -337,6 +372,12 @@ function ensureShape(s){
   s.bubbles.forEach((b,i)=>{ if(!b.type)b.type=(b.kind==='image')?'image':'boble'; if(typeof b.x!=='number')b.x=4+(i%3)*26; if(typeof b.y!=='number')b.y=24+Math.floor(i/3)*180; if(typeof b.rot!=='number')b.rot=(i%2?1.1:-1.1); });
   s.guide=Array.isArray(s.guide)?s.guide:d.guide;
   s.gallery=Array.isArray(s.gallery)?s.gallery:[];
+  if(!Array.isArray(s.book)){
+    const src=Array.isArray(s.bubbles)?s.bubbles:[];
+    const blocks=src.map(b=> (b.type==='image'||b.kind==='image') ? {id:b.id||uid(),type:'image',imgId:b.imgId||null,cap:b.cap||''} : {id:b.id||uid(),type:'text',text:b.text||''});
+    s.book=[{id:uid(),blocks}];
+  }
+  s.book.forEach(p=>{ if(!Array.isArray(p.blocks))p.blocks=[]; });
   s.historyIntro=s.historyIntro||d.historyIntro;
   s.guideIntro=s.guideIntro||d.guideIntro;
 }
@@ -405,10 +446,11 @@ function go(page){current=page;document.querySelectorAll('.page').forEach(p=>p.c
 
 /* ---------- editable binding ---------- */
 function ed(path,html,tag,cls){tag=tag||'div';cls=cls?' class="'+cls+'"':'';return `<${tag}${cls} data-bind="${path}" ${editMode?'contenteditable="true"':''} spellcheck="false">${html}</${tag}>`;}
-function bindEditables(scope){(scope||document).querySelectorAll('[data-bind]').forEach(el=>{el.setAttribute('contenteditable',editMode?'true':'false');if(el._bound)return;el._bound=true;el.addEventListener('blur',()=>{const val=el.innerText.replace(/\u00a0/g,' ').trimEnd();const bind=el.dataset.bind;if(applyBind(bind,val)){saveState();return;}setByPath(state,bind,val);if(bind==='site.name'){document.getElementById('brandName').textContent=val||'Hytta';document.getElementById('footName').textContent=val||'hytta';document.getElementById('gateName').textContent=val||'Hytta';}saveState();});});}
+function bindEditables(scope){(scope||document).querySelectorAll('[data-bind]').forEach(el=>{el.setAttribute('contenteditable',editMode?'true':'false');if(el._bound)return;el._bound=true;el.addEventListener('blur',()=>{const val=el.innerText.replace(/\u00a0/g,' ').trimEnd();const bind=el.dataset.bind;if(applyBind(bind,val)){saveState();const pm=bind.match(/^it:front:place:(.+)$/);if(pm)geocodeWeather(pm[1],val);return;}setByPath(state,bind,val);if(bind==='site.name'){document.getElementById('brandName').textContent=val||'Hytta';document.getElementById('footName').textContent=val||'hytta';document.getElementById('gateName').textContent=val||'Hytta';}saveState();});});}
 function applyBind(bind,val){
   let m;
   if(m=bind.match(/^it:([a-z]+):([a-z]+):(.+)$/)){const it=getList(m[1]).find(x=>x.id===m[3]);if(it){it[m[2]]=val;}return true;}
+  if(m=bind.match(/^bk:(text|cap):(.+)$/)){for(const pg of state.book){const b=pg.blocks.find(x=>x.id===m[2]);if(b){b[m[1]]=val;break;}}return true;}
   if(m=bind.match(/^__gh__(.+)$/)){const g=state.guide.find(x=>x.id===m[1]);if(g)g.heading=val;return true;}
   if(m=bind.match(/^__gb__(.+)$/)){const g=state.guide.find(x=>x.id===m[1]);if(g)g.body=val;return true;}
   if(m=bind.match(/^__gc__(.+)$/)){const g=state.gallery.find(x=>x.id===m[1]);if(g)g.cap=val;return true;}
@@ -424,7 +466,7 @@ function render(){
   document.getElementById('footName').textContent=state.site.name||'hytta';
   document.getElementById('gateName').textContent=state.site.name||'Hytta vår';
   renderForside();renderHistorie();renderTavla();renderGuide();renderBilder();
-  bindEditables();hydrateImages();updatedInfo();setTimeout(fitAll,90);
+  bindEditables();hydrateImages();updatedInfo();setTimeout(fitAll,90);setTimeout(loadAllWeather,120);
 }
 function renderForside(){
   const s=state.site;
@@ -470,6 +512,9 @@ function itemHTML(it,listName){
   if(it.type==='boble'){
     return `<div class="note" data-item="${did}" style="${style}">${drag}<div class="bubble" style="${bubbleStyle(it.color)}">${ed('it:'+listName+':text:'+it.id,esc(it.text),'div','bub-txt')}</div><div class="blk-tools"><button class="mini" onclick="cycleItemColor('${listName}','${it.id}')">Farge</button>${del}</div></div>`;
   }
+  if(it.type==='weather'){
+    return `<div class="note weather" data-item="${did}" style="${style}">${drag}<div class="wcard"><div class="wplace">📍 ${ed('it:'+listName+':place:'+it.id,esc(it.place||'')||(editMode?'Skriv sted…':'—'))}</div><div class="wbody" id="w-${it.id}"></div><div class="wnav" id="wnav-${it.id}"><button class="wprev" onclick="weatherDayShift('${it.id}',-1)">◀</button><span class="wlbl"></span><button class="wnext" onclick="weatherDayShift('${it.id}',1)">▶</button></div></div><div class="blk-tools">${del}</div></div>`;
+  }
   return `<div class="note text" data-item="${did}" style="${style}">${drag}${ed('it:'+listName+':text:'+it.id,esc(it.text),'div','body-txt')}<div class="blk-tools">${del}</div></div>`;
 }
 function canvasHTML(listName){return `<div class="canvas" id="canvas-${listName}">${getList(listName).map(it=>itemHTML(it,listName)).join('')}</div>`;}
@@ -479,17 +524,44 @@ function addBarHTML(listName){
     <button class="add-btn" onclick="addItem('${listName}','text')">+ Tekst</button>
     <button class="add-btn alt" onclick="addItem('${listName}','boble')">+ Boble</button>
     <button class="add-btn alt" onclick="addItem('${listName}','image')">+ Bilde</button>
+    ${listName==='front'?`<button class="add-btn alt" onclick="addItem('${listName}','weather')">+ Vær</button>`:''}
   </div>`;
 }
 function fitCanvas(listName){const c=document.getElementById('canvas-'+listName);if(!c)return;let maxB=60;c.querySelectorAll('.note').forEach(n=>{const b=n.offsetTop+n.offsetHeight;if(b>maxB)maxB=b;});c.style.minHeight=(maxB+50)+'px';}
-function fitAll(){['front','history','hyttebok'].forEach(fitCanvas);}
+function fitAll(){['front','history'].forEach(fitCanvas);}
 function renderTavla(){
+  if(!Array.isArray(state.book)||!state.book.length) state.book=[{id:uid(),blocks:[]}];
+  if(bookPage>=state.book.length)bookPage=state.book.length-1;
+  if(bookPage<0)bookPage=0;
+  const page=state.book[bookPage];
+  const blocksHTML=page.blocks.map(bookBlockHTML).join('')|| (editMode?'':'<p class="book-empty">Tom side.</p>');
   document.getElementById('page-tavla').innerHTML=`
-    <div class="page-head"><span class="eyebrow">Familien</span><h2>Hyttebok</h2><p>Skriv en hilsen, et minne eller legg inn et bilde. I redigeringsmodus kan du dra hver lapp dit du vil.</p></div>
-    ${canvasHTML('hyttebok')}
-    ${state.bubbles.length?'':'<p class="empty-note">Ingen innførsler ennå.</p>'}
-    ${addBarHTML('hyttebok')}`;
-  setTimeout(()=>fitCanvas('hyttebok'),60);
+    <div class="page-head"><span class="eyebrow">Familien</span><h2>Hyttebok</h2><p>Bla gjennom sidene med pilene. I redigeringsmodus kan du skrive og legge inn bilder.</p></div>
+    <div class="book"><div class="book-page" id="bookPage">${blocksHTML}</div></div>
+    <div class="book-nav">
+      <button class="pagebtn" onclick="bookFlip(-1)" ${bookPage===0?'disabled':''}>◀ Forrige</button>
+      <span class="pageind">Side ${bookPage+1} av ${state.book.length}</span>
+      <button class="pagebtn" onclick="bookFlip(1)" ${bookPage>=state.book.length-1?'disabled':''}>Neste ▶</button>
+    </div>
+    ${editMode?`<div class="add-bar">
+      <button class="add-btn" onclick="addBookBlock('text')">+ Tekst</button>
+      <button class="add-btn alt" onclick="addBookBlock('image')">+ Bilde</button>
+      <button class="add-btn" onclick="addPage()">+ Ny side</button>
+      ${state.book.length>1?`<button class="add-btn alt" onclick="delPage()">Slett denne siden</button>`:''}
+    </div>`:''}`;
+}
+function bookBlockHTML(b){
+  const tools=`<div class="blk-tools">
+    <button class="mini" onclick="moveBookBlock('${b.id}',-1)">↑</button>
+    <button class="mini" onclick="moveBookBlock('${b.id}',1)">↓</button>
+    ${b.type==='image'?`<button class="mini" onclick="pickImage('book:${b.id}')">Bytt bilde</button>`:''}
+    <button class="mini danger" onclick="delBookBlock('${b.id}')">Slett</button></div>`;
+  if(b.type==='image'){
+    const img=b.imgId?`<img data-imgid="${b.imgId}" alt="${esc(b.cap)}">`:phBox(editMode?`pickImage('book:${b.id}')`:'','Bilde');
+    const cap=(editMode||b.cap)?`<div class="cap">${ed('bk:cap:'+b.id,esc(b.cap)||(editMode?'Bildetekst…':''))}</div>`:'';
+    return `<div class="bblock image"><div class="photo">${img}${cap}</div>${tools}</div>`;
+  }
+  return `<div class="bblock text">${ed('bk:text:'+b.id,esc(b.text),'div','book-txt')}${tools}</div>`;
 }
 function renderGuide(){
   const cards=state.guide.map(g=>`
@@ -519,6 +591,7 @@ function reBoard(listName){
   else renderTavla();
   const pg=listName==='front'?'page-forside':listName==='history'?'page-historie':'page-tavla';
   bindEditables(document.getElementById(pg)); hydrateImages();
+  if(listName==='front') setTimeout(loadAllWeather,40);
 }
 function addItem(listName,type){
   const list=getList(listName); const i=list.length;
@@ -526,12 +599,63 @@ function addItem(listName,type){
   if(type==='image'){it.imgId=null;it.cap='';}
   else if(type==='year'){it.year='År';}
   else if(type==='boble'){it.text='Skriv her…';it.color=i%BUBBLE_COLORS.length;}
+  else if(type==='weather'){it.place='';it.lat=null;it.lon=null;}
   else {it.text='Skriv her…';}
   list.push(it); reBoard(listName);
   if(type==='image') pickImage('img:'+listName+':'+it.id);
 }
 async function delItem(listName,id){if(!await confirmDialog('Slette dette?'))return;const list=getList(listName);const idx=list.findIndex(x=>x.id===id);if(idx>=0)list.splice(idx,1);reBoard(listName);}
 function cycleItemColor(listName,id){const it=getList(listName).find(x=>x.id===id);if(it){it.color=((it.color||0)+1)%BUBBLE_COLORS.length;reBoard(listName);}}
+
+/* ---------- hyttebok (bok) ---------- */
+function reBook(){saveState();renderTavla();bindEditables(document.getElementById('page-tavla'));hydrateImages();}
+function currentPage(){return state.book[bookPage];}
+function bookFlip(dir){bookPage=Math.max(0,Math.min(bookPage+dir,state.book.length-1));renderTavla();bindEditables(document.getElementById('page-tavla'));hydrateImages();const p=document.getElementById('bookPage');if(p)p.classList.add('flip');}
+function addBookBlock(type){const p=currentPage();const nb=type==='image'?{id:uid(),type:'image',imgId:null,cap:''}:{id:uid(),type:'text',text:'Skriv her…'};p.blocks.push(nb);reBook();if(type==='image')pickImage('book:'+nb.id);}
+function moveBookBlock(id,dir){const bl=currentPage().blocks;const i=bl.findIndex(x=>x.id===id),j=i+dir;if(j<0||j>=bl.length)return;[bl[i],bl[j]]=[bl[j],bl[i]];reBook();}
+async function delBookBlock(id){if(!await confirmDialog('Slette dette?'))return;const p=currentPage();p.blocks=p.blocks.filter(x=>x.id!==id);reBook();}
+function addPage(){state.book.push({id:uid(),blocks:[]});bookPage=state.book.length-1;reBook();}
+async function delPage(){if(state.book.length<=1)return;if(!await confirmDialog('Slette hele denne siden?'))return;state.book.splice(bookPage,1);if(bookPage>=state.book.length)bookPage=state.book.length-1;reBook();}
+
+/* ---------- vær (Open-Meteo, ingen nøkkel) ---------- */
+function weatherInfo(code){
+  const m={0:['☀️','Klarvær'],1:['🌤️','Stort sett klart'],2:['⛅','Delvis skyet'],3:['☁️','Overskyet'],45:['🌫️','Tåke'],48:['🌫️','Rimtåke'],51:['🌦️','Lett yr'],53:['🌦️','Yr'],55:['🌦️','Kraftig yr'],56:['🌧️','Iskaldt yr'],57:['🌧️','Iskaldt yr'],61:['🌧️','Lett regn'],63:['🌧️','Regn'],65:['🌧️','Kraftig regn'],66:['🌧️','Underkjølt regn'],67:['🌧️','Underkjølt regn'],71:['🌨️','Lett snø'],73:['🌨️','Snø'],75:['❄️','Kraftig snø'],77:['❄️','Snøkorn'],80:['🌦️','Regnbyger'],81:['🌦️','Regnbyger'],82:['⛈️','Kraftige byger'],85:['🌨️','Snøbyger'],86:['🌨️','Snøbyger'],95:['⛈️','Torden'],96:['⛈️','Torden m/hagl'],99:['⛈️','Torden m/hagl']};
+  return m[code]||['🌡️','—'];
+}
+function loadAllWeather(){(state.front||[]).forEach(it=>{if(it.type==='weather')loadWeather(it);});}
+async function loadWeather(item){
+  const body=document.getElementById('w-'+item.id); if(!body)return;
+  if(!item.lat||!item.lon){body.innerHTML='<div class="wdesc">Skriv inn et sted i feltet over.</div>';return;}
+  if(weatherCache[item.id]){renderWeatherBody(item);return;}
+  body.innerHTML='<div class="wdesc">Laster vær…</div>';
+  try{
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${item.lat}&longitude=${item.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&forecast_days=7`;
+    const r=await fetch(u); const j=await r.json();
+    if(j&&j.daily){weatherCache[item.id]=j.daily;renderWeatherBody(item);}
+    else body.innerHTML='<div class="wdesc">Fikk ikke hentet været.</div>';
+  }catch(e){body.innerHTML='<div class="wdesc">Fikk ikke hentet været.</div>';}
+}
+function renderWeatherBody(item){
+  const d=weatherCache[item.id]; const body=document.getElementById('w-'+item.id); if(!d||!body)return;
+  let i=weatherDay[item.id]||0; i=Math.max(0,Math.min(i,d.time.length-1)); weatherDay[item.id]=i;
+  const wi=weatherInfo(d.weather_code[i]);
+  const date=new Date(d.time[i]+'T00:00');
+  const day=date.toLocaleDateString('no-NO',{weekday:'long',day:'numeric',month:'short'});
+  body.innerHTML=`<div class="wday">${day}</div><div class="wbig"><span class="wicon">${wi[0]}</span><span class="wtemp">${Math.round(d.temperature_2m_max[i])}°</span></div><div class="wdesc">${wi[1]}</div><div class="wmeta">Min ${Math.round(d.temperature_2m_min[i])}° · Nedbør ${d.precipitation_sum[i]} mm</div>`;
+  const nav=document.getElementById('wnav-'+item.id);
+  if(nav){nav.querySelector('.wprev').disabled=(i<=0);nav.querySelector('.wnext').disabled=(i>=d.time.length-1);nav.querySelector('.wlbl').textContent=`Dag ${i+1} av ${d.time.length}`;}
+}
+function weatherDayShift(id,dir){weatherDay[id]=(weatherDay[id]||0)+dir;const it=(state.front||[]).find(x=>x.id===id);if(it)renderWeatherBody(it);}
+async function geocodeWeather(id,name){
+  const it=(state.front||[]).find(x=>x.id===id); if(!it)return;
+  if(!name||name==='Skriv sted…'){return;}
+  try{
+    const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=no&format=json`);
+    const j=await r.json();
+    if(j.results&&j.results[0]){it.lat=j.results[0].latitude;it.lon=j.results[0].longitude;it.place=j.results[0].name;delete weatherCache[id];weatherDay[id]=0;saveState();reBoard('front');}
+    else {const body=document.getElementById('w-'+id);if(body)body.innerHTML='<div class="wdesc">Fant ikke stedet. Prøv et annet navn.</div>';}
+  }catch(e){}
+}
 
 /* dra-og-slipp (alle tavler) */
 let drag=null;
@@ -570,7 +694,7 @@ function clearHero(){state.site.heroImgId=null;saveState();renderForside();bindE
 
 /* ---------- file ---------- */
 function pickImage(target){fileTarget=target;const inp=document.getElementById('fileInput');inp.multiple=(target==='gallery');inp.value='';inp.click();}
-document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('img:')){const parts=fileTarget.split(':');const it=getList(parts[1]).find(x=>x.id===parts[2]);if(it)it.imgId=id;}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
+document.getElementById('fileInput').addEventListener('change',async e=>{const files=[...e.target.files];if(!files.length)return;flashSaved('Behandler bilde…');for(const f of files){try{const data=await compressImage(f);const id=await putImage(data);if(fileTarget==='hero')state.site.heroImgId=id;else if(fileTarget==='gallery')state.gallery.push({id:uid(),imgId:id,cap:''});else if(fileTarget&&fileTarget.startsWith('img:')){const parts=fileTarget.split(':');const it=getList(parts[1]).find(x=>x.id===parts[2]);if(it)it.imgId=id;}else if(fileTarget&&fileTarget.startsWith('book:')){const bid=fileTarget.split(':')[1];for(const pg of state.book){const b=pg.blocks.find(x=>x.id===bid);if(b){b.imgId=id;break;}}}}catch(err){flashSaved('Klarte ikke å lese bildet');}}await saveState(true);render();});
 
 /* ============================================================ AUTH / ROLES ============================================================ */
 async function gateLogin(){
